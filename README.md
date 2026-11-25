@@ -1,6 +1,6 @@
 # Firestorm macOS Launcher
 
-An independent native launcher for **Firestorm Midnight / Silvermoon**, targeting **World of Warcraft 12.0.7.68974** on **Apple Silicon** and **macOS 14 or later**.
+An independent native launcher for **Firestorm Midnight / Silvermoon**, targeting **World of Warcraft 12.0.7.68974** on **Intel and Apple Silicon** and **macOS 14 or later**.
 
 > [!IMPORTANT]
 > After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
@@ -12,9 +12,11 @@ This repository contains launcher and compatibility-patch source code, build met
 
 ## Download
 
-**[Download Firestorm Launcher for macOS — Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest)**
+**[Download Firestorm Launcher 1.1.6 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.6/Firestorm-Launcher-1.1.6-macOS-Universal.zip)**
 
-Download the macOS ZIP under **Assets**. Requires macOS 14 or later.
+One **Universal 2** package contains the launcher and prepared game client for **Intel (`x86_64`) and Apple Silicon (`arm64`)**. Requires macOS 14 or later.
+
+The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.6).
 
 ## Screenshot
 
@@ -22,6 +24,7 @@ Download the macOS ZIP under **Assets**. Requires macOS 14 or later.
 
 ## Features
 
+- Universal 2 support for Intel and Apple Silicon, including their matching game compatibility patches.
 - Native macOS interface in English, with configurable game text and voice language.
 - Starter Data downloads from Firestorm with pause and resume support.
 - Installation into a new folder or selection of an existing compatible client.
@@ -80,17 +83,21 @@ The default output directory is `dist` inside this repository. To choose another
 FIRESTORM_CLIENT_PAYLOAD_DIR="/path/to/payload" bash build.sh "/path/to/output"
 ```
 
-Outputs are `Firestorm-Launcher/Firestorm Launcher.app` and `Firestorm-Launcher-macOS.zip`. Building compiles and signs the launcher, packages the local payload, and includes the source files in the release archive. It does not launch the game or run the development checks.
+Outputs are `Firestorm-Launcher/Firestorm Launcher.app` and `Firestorm-Launcher-macOS.zip`. Building compiles both launcher architectures, combines them into a Universal 2 executable, signs the launcher, packages the local payload, and includes the source files in the release archive. The payload must already include the matching client libraries for both architectures. It does not launch the game or run the development checks.
 
 `test.sh` contains optional development checks for the installation core. Run it manually only when desired; the build script does not invoke it.
+
+The checks default to the host architecture. Use `FIRESTORM_TEST_ARCH=x86_64 bash test.sh` to run the Intel checks on an Intel Mac or through Rosetta on Apple Silicon.
 
 ## Compatibility patch
 
 The supplied patch changes certificate-trust checks inside the prepared game process for Firestorm compatibility. It does not change the macOS system certificate store. Use a separate game copy for this server. Patch sources and signing entitlements are in `ProvidedPatch`.
 
+The prepared game loads the supplied `libFirestormCertBypassX86.dylib` on Intel. The Intel patch source and installation scripts are under `ProvidedPatch/x86_64`. The Apple Silicon client loads its existing ARM libraries. macOS selects the executable architecture automatically.
+
 ## Project status and licensing
 
-Startup and server login have been reported working in the author's manual setup. Compatibility has not been established across every supported Mac, operating-system version, or network environment.
+Game startup and server login have been reported working on Apple Silicon. The installation core passed 51 checks on each architecture, with Intel checks running through Rosetta. Preparation, file verification and backup restoration using the bundled game client also passed through the Intel launcher under Rosetta. Actual game startup and Silvermoon login on physical Intel hardware still require manual verification.
 
 The original project source code and documentation are licensed under **WTFPL version 2**; see [LICENSE](LICENSE). Third-party portions retain their existing license terms and notices, including the CascLib MIT notice; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The WTFPL grant does not cover Blizzard's game application, game Data, trademarks, or other third-party materials, including those in binary releases.
 

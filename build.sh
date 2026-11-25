@@ -22,13 +22,18 @@ fi
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$cache"
 xcrun swift -module-cache-path "$cache" "$project/make_icon.swift" "$stage/Firestorm.iconset"
 cp "$stage/Firestorm.icns" "$app/Contents/Resources/Firestorm.icns"
-xcrun swiftc -parse-as-library -target arm64-apple-macos14.0 -swift-version 5 -O \
-  -module-cache-path "$cache" "$project"/Sources/*.swift \
-  -o "$app/Contents/MacOS/FirestormLauncher"
+for architecture in arm64 x86_64; do
+  xcrun swiftc -parse-as-library -target "$architecture-apple-macos14.0" -swift-version 5 -O \
+    -module-cache-path "$cache" "$project"/Sources/*.swift \
+    -o "$stage/FirestormLauncher-$architecture"
+done
+xcrun lipo -create "$stage/FirestormLauncher-arm64" "$stage/FirestormLauncher-x86_64" \
+  -output "$app/Contents/MacOS/FirestormLauncher"
+xcrun lipo "$app/Contents/MacOS/FirestormLauncher" -verify_arch arm64 x86_64
 cp "$project/Info.plist" "$app/Contents/Info.plist"
 cp "$payload/Client.zip" "$payload/client-manifest.json" "$app/Contents/Resources/"
 codesign --force --sign - --timestamp=none "$app"
-codesign --verify --deep --strict "$app"
+codesign --verify --deep --strict --all-architectures "$app"
 cp "$project/README.md" "$release/README.md"
 cp "$project/LICENSE" "$release/LICENSE"
 cp "$project/THIRD_PARTY_NOTICES.md" "$release/THIRD_PARTY_NOTICES.md"

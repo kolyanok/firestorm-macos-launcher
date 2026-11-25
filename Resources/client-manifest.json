@@ -8,8 +8,9 @@
     "Contents/Helpers/WowVoiceProxy.app/Contents/Resources/Icon.icns": "b2d416e99332f1858cf3feb79c4d883d7b2c2771181ca1004af18393163883c6",
     "Contents/Helpers/WowVoiceProxy.app/Contents/_CodeSignature/CodeResources": "b1952803a5a14a74e9535b0899a30e37f4269f1c728098f919345bb984301cd3",
     "Contents/Info.plist": "51a407fc7eb516aeaf964e68ac781e09bc2aec9596c9cab09d1130dbdbe04859",
-    "Contents/MacOS/World of Warcraft": "5f637d4b516e01aeac1296d0f941e567330541c8a3273b5d1d21611f15b63d69",
+    "Contents/MacOS/World of Warcraft": "396ff42bcbf92a1948fda372e7eb1e8dadc7931e215906b0791f318b660219fb",
     "Contents/MacOS/libFirestormCertBypass.dylib": "e7980226a48190d6498a10d91803268fea5775b05be8318fef36c893a0e377e5",
+    "Contents/MacOS/libFirestormCertBypassX86.dylib": "ddf0d1a660f591c7d4791ffeedf2bc82b2a63272729db511e505cce57bd829f0",
     "Contents/MacOS/libFirestormRet0.dylib": "03b27d04c0cd8ec3f0a94fd67098654a358feb37619e71164cd2ac580aaa2d6a",
     "Contents/PkgInfo": "7e94f4175f4c048c9e78a9ca968728bbc889b45e67d773c60d617c0d0e4d23f5",
     "Contents/Resources/Application.nib": "2aac33473755383b45a86fb383108f0f6c08f6621b737b424acbc6304a091bc4",
@@ -53,6 +54,6 @@
     "Contents/Resources/zh-Hant.lproj/Application.strings": "a21e279037c1e37c008d175b7c21d9778fc9236db29789bfe17596ff295b8299",
     "Contents/Resources/zh-Hant.lproj/InfoPlist.strings": "1a133f06a42f36c4f4fa4c92988bea28d015d05ca80d41b6f0e704643c8f5684",
     "Contents/Resources/zh-Hant.lproj/Startup.strings": "1419aef02c8422bbf26efb3f90af85b510515bac23d96b6a9c1c448b05496cd8",
-    "Contents/_CodeSignature/CodeResources": "1a0b86150934af641c61594abb4617be60eb5ef356e228d471177e2c9d15c52e"
+    "Contents/_CodeSignature/CodeResources": "422d12dc1bee90036f72dfa33d8a33314830d23f316eac565aa2a48bf7855317"
   }
 }

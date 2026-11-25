@@ -130,7 +130,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSLayoutConstraint.activate([sidebar.leadingAnchor.constraint(equalTo:content.leadingAnchor),sidebar.topAnchor.constraint(equalTo:content.topAnchor),sidebar.bottomAnchor.constraint(equalTo:content.bottomAnchor),sidebar.widthAnchor.constraint(equalToConstant:205)])
         let flame = label("♨",size:40,weight:.bold,color:amber)
         let brand = label("FIRESTORM",size:18,weight:.heavy)
-        let edition = label("MACOS LAUNCHER  /  1.1.5",size:10,weight:.semibold,color:muted)
+        let edition = label("MACOS LAUNCHER  /  1.1.6",size:10,weight:.semibold,color:muted)
         let gameTab = Surface(NSColor(calibratedRed:0.19,green:0.15,blue:0.13,alpha:1),radius:9)
         let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold),label("Silvermoon · EU",size:11,color:muted)],spacing:5)
         pin(tabText,in:gameTab,insets:14)
@@ -139,7 +139,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         side.setCustomSpacing(30,after:edition); side.setCustomSpacing(28,after:gameTab)
         sidebar.addSubview(side); side.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([side.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),side.trailingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:-18),side.topAnchor.constraint(equalTo:sidebar.topAnchor,constant:30),gameTab.widthAnchor.constraint(equalTo:side.widthAnchor)])
-        let foot = label("Apple Silicon · macOS 14+\nCommunity launcher",size:10,color:muted)
+        let foot = label("Intel & Apple Silicon · macOS 14+\nCommunity launcher",size:10,color:muted)
         sidebar.addSubview(foot); foot.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([foot.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),foot.bottomAnchor.constraint(equalTo:sidebar.bottomAnchor,constant:-22)])
 
@@ -403,8 +403,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func openSite() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/welcome")!) }
     @objc private func openDownloads() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/play")!) }
     @objc private func about() {
-        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.5"
-        a.informativeText = "Community launcher for Midnight 12.0.7.68974.\nApple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game."
+        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.6"
+        a.informativeText = "Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game."
         a.beginSheetModal(for:window)
     }
     private func checkNetwork() {
