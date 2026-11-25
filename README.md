@@ -2,6 +2,12 @@
 
 An independent native launcher for **Firestorm Midnight / Silvermoon**, targeting **World of Warcraft 12.0.7.68974** on **Apple Silicon** and **macOS 14 or later**.
 
+> [!IMPORTANT]
+> After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
+> Keep `World of Warcraft.app` inside `_midnight_` in your game folder so WoW can find its `Data` folder.
+>
+> If WoW reports `../Data: Read-only file system`, quit WoW and the launcher, then reopen the launcher from **Applications** and click **Play**.
+
 This repository contains launcher and compatibility-patch source code, build metadata, and development checks. It does **not** contain the World of Warcraft application, game Data, compiled patch libraries, or release archives. The full binary release is a separate download and includes the prepared macOS game application and compatibility patch.
 
 ## Download
@@ -29,7 +35,7 @@ The launcher is pinned to build **12.0.7.68974**. It does not automatically upgr
 ## Install and play
 
 1. Download the full macOS launcher archive from the [**Releases** page](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest) and extract it.
-2. Open **Firestorm Launcher.app**.
+2. In Finder, drag **Firestorm Launcher.app** to **Applications**, then open it from there.
 3. Choose a game language and click **Install**. The default location is `~/Games/Firestorm Midnight`; use **Install location…** to change it.
 4. When installation finishes, click **Play** and sign in from the game window.
 
