@@ -46,6 +46,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let core = LauncherCore()
     private var busy = false
     private var game: NSRunningApplication?
+    private var gameProcess: Process?
     private var timer: Timer?
     private var connection: NWConnection?
     private let path = NSTextField(wrappingLabelWithString: "Choose an existing game folder containing Data and _midnight_.")
@@ -130,7 +131,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSLayoutConstraint.activate([sidebar.leadingAnchor.constraint(equalTo:content.leadingAnchor),sidebar.topAnchor.constraint(equalTo:content.topAnchor),sidebar.bottomAnchor.constraint(equalTo:content.bottomAnchor),sidebar.widthAnchor.constraint(equalToConstant:205)])
         let flame = label("♨",size:40,weight:.bold,color:amber)
         let brand = label("FIRESTORM",size:18,weight:.heavy)
-        let edition = label("MACOS LAUNCHER  /  1.1.6",size:10,weight:.semibold,color:muted)
+        let edition = label("MACOS LAUNCHER  /  1.1.7",size:10,weight:.semibold,color:muted)
         let gameTab = Surface(NSColor(calibratedRed:0.19,green:0.15,blue:0.13,alpha:1),radius:9)
         let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold),label("Silvermoon · EU",size:11,color:muted)],spacing:5)
         pin(tabText,in:gameTab,insets:14)
@@ -194,7 +195,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         language.isEnabled = !busy
         play.isEnabled = !busy
         if pendingInstallDestination != nil { play.title = installCancellation == nil ? "Resume install" : "Installing…" }
-        else { play.title = selected == nil ? "Install" : (game?.isTerminated == false ? "Return to game" : "Play") }
+        else { play.title = selected == nil ? "Install" : (gameProcess?.isRunning == true || game?.isTerminated == false ? "Return to game" : "Play") }
         pause.isHidden = installCancellation == nil
         pause.isEnabled = installCancellation != nil
         if busy { progress.startAnimation(nil) } else { progress.stopAnimation(nil) }
@@ -303,6 +304,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard !busy, !launchNoticeVisible else { return }
         if pendingInstallDestination != nil { installGame(); return }
         guard let selected else { installGame(); return }
+        if let process = gameProcess, process.isRunning,
+           process.executableURL == selected.app.appendingPathComponent("Contents/MacOS/World of Warcraft") {
+            NSRunningApplication(processIdentifier: process.processIdentifier)?.activate(options: [])
+            updateButtons()
+            return
+        }
         if let running = NSWorkspace.shared.runningApplications.first(where:{$0.bundleURL?.standardizedFileURL == selected.app.standardizedFileURL && !$0.isTerminated}) { game = running; running.activate(options:[]); updateButtons(); return }
         if let identity = coldStartNoticeIdentity(for:selected),
            !(UserDefaults.standard.stringArray(forKey:"AcknowledgedColdStartNotices") ?? []).contains(identity) {
@@ -341,34 +348,40 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     private func openGame(_ selected:GameInstallation) {
         let starterInstall = coldStartNoticeIdentity(for:selected) != nil
-        let config = NSWorkspace.OpenConfiguration(); config.arguments = ["-config","Firestorm.wtf"]; config.createsNewApplicationInstance = true
-        let logs = selected.logs.appendingPathComponent("FirestormCertBypass.log")
-        try? FileManager.default.createDirectory(at:selected.logs,withIntermediateDirectories:true)
-        var environment = ProcessInfo.processInfo.environment
-        environment.removeValue(forKey:"DYLD_INSERT_LIBRARIES")
-        environment["FIRESTORM_BYPASS_LOG"] = logs.path
-        config.environment = environment
         busy = true; updateButtons()
-        // LaunchServices may not call its completion handler until the Dock
-        // bouncing ends, so show the waiting message before requesting launch.
         if starterInstall {
             detail.stringValue = Self.coldStartHint
             log("Starting WoW. The first launch may take around 10 minutes before a window appears…")
         } else { log("Starting WoW…") }
-        NSWorkspace.shared.openApplication(at:selected.app,configuration:config) { app,error in
-            DispatchQueue.main.async {
-                self.busy = false
-                if let error { self.log(error.localizedDescription,error:true) }
-                else if let app {
-                    self.game = app
-                    self.log(starterInstall ? "Game process started. If no window is visible yet, please wait while startup finishes." : "Game process started. Sign in from the World of Warcraft window.")
-                    self.badge.stringValue = "GAME RUNNING"
-                }
-                self.updateButtons()
-            }
+        do {
+            let process = try core.launch(selected)
+            gameProcess = process
+            game = NSRunningApplication(processIdentifier: process.processIdentifier)
+            log(starterInstall ? "Game process started. If no window is visible yet, please wait while startup finishes." : "Game process started. Sign in from the World of Warcraft window.")
+            badge.stringValue = "GAME RUNNING"
+        } catch {
+            gameProcess = nil
+            game = nil
+            log(error.localizedDescription,error:true)
         }
+        busy = false; updateButtons()
     }
     private func observeGame() {
+        if let process = gameProcess {
+            if process.isRunning {
+                game = NSRunningApplication(processIdentifier: process.processIdentifier)
+                return
+            }
+            gameProcess = nil
+            game = nil
+            if !busy {
+                let status = process.terminationStatus
+                log(status == 0 ? "The game has exited." : "The game exited with code \(status). Open Logs to inspect GameLaunch.log.", error: status != 0)
+                badge.stringValue = "READY TO PLAY"
+                updateButtons()
+            }
+            return
+        }
         if let game,game.isTerminated { self.game = nil; if !busy { log("The game has exited."); badge.stringValue = "READY TO PLAY"; updateButtons() } }
     }
     @objc private func openFolder() {
@@ -403,7 +416,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func openSite() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/welcome")!) }
     @objc private func openDownloads() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/play")!) }
     @objc private func about() {
-        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.6"
+        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.7"
         a.informativeText = "Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game."
         a.beginSheetModal(for:window)
     }

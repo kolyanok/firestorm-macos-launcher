@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Darwin
 
 private enum TestFailure: Error, CustomStringConvertible {
     case assertion(String)
@@ -265,6 +266,56 @@ struct CoreTests {
             try expect(try String(contentsOf: failedRoot.appendingPathComponent("Data/data/data.000"), encoding: .utf8) == "archive fixture", "Failed clean finalization preserves downloaded Data")
             try expect(try String(contentsOf: failedRoot.appendingPathComponent(".fsbuild"), encoding: .utf8) == "invalid build metadata\n", "Failed clean finalization preserves downloaded metadata")
 
+            // Exercise the real child process so its relative Data lookup and
+            // launch arguments cannot silently depend on the launcher's path.
+            let launchFixture = try Fixture(temporary.appendingPathComponent("Launch Paths With Spaces"))
+            let launchGame = try GameInstallation.inspect(launchFixture.root)
+            let launchCore = LauncherCore(resources: launchFixture.resources)
+            let launchExecutable = launchGame.app.appendingPathComponent("Contents/MacOS/World of Warcraft")
+            try write("""
+            #!/bin/sh
+            printf 'CWD='
+            /bin/pwd
+            printf 'EXECUTABLE=%s\\n' "$0"
+            printf 'ARG=%s\\n' "$@"
+            printf 'BYPASS=%s\\n' "$FIRESTORM_BYPASS_LOG"
+            printf 'DATA='
+            /bin/cat ../Data/data/data.000
+            printf '\\n'
+            printf 'STDERR=child diagnostic\\n' >&2
+            """ + "\n", to: launchExecutable)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: launchExecutable.path)
+            let launchLog = launchGame.logs.appendingPathComponent("GameLaunch.log")
+            try write("previous launch diagnostic\n", to: launchLog)
+            do {
+                let previousInjection = ProcessInfo.processInfo.environment["DYLD_INSERT_LIBRARIES"]
+                defer {
+                    if let previousInjection { setenv("DYLD_INSERT_LIBRARIES", previousInjection, 1) }
+                    else { unsetenv("DYLD_INSERT_LIBRARIES") }
+                }
+                setenv("DYLD_INSERT_LIBRARIES", "/tmp/firestorm-unused-test-library.dylib", 1)
+                let launched = try launchCore.launch(launchGame)
+                launched.waitUntilExit()
+                try expect(launched.terminationStatus == 0, "Game child exits successfully")
+                try expect(launched.environment?["DYLD_INSERT_LIBRARIES"] == nil, "Game launch removes inherited library injection")
+            }
+            let launchOutput = try String(contentsOf: launchLog, encoding: .utf8)
+            try expect(launchOutput.hasPrefix("previous launch diagnostic\n"), "Game launch appends to existing diagnostics")
+            let workingDirectoryLine = launchOutput.split(whereSeparator: \.isNewline).first(where: { $0.hasPrefix("CWD=") })
+            let workingDirectory = workingDirectoryLine.map {
+                URL(fileURLWithPath: String($0.dropFirst(4))).resolvingSymlinksInPath().path
+            }
+            try expect(workingDirectory == launchGame.product.resolvingSymlinksInPath().path, "Game starts in its product folder after resolving path aliases")
+            try expect(launchOutput.contains("EXECUTABLE=\(launchExecutable.path)\n"), "Game runs from the selected app path")
+            try expect(launchOutput.contains("ARG=-config\nARG=Firestorm.wtf\n"), "Game receives its connection-profile arguments")
+            try expect(launchOutput.contains("BYPASS=\(launchGame.logs.appendingPathComponent("FirestormCertBypass.log").path)\n"), "Game patch log stays inside the selected installation")
+            try expect(launchOutput.contains("DATA=archive fixture\n"), "Game can read Data through its relative parent path")
+            try expect(launchOutput.contains("STDERR=child diagnostic\n"), "Game standard error is captured in launch diagnostics")
+            try write("invalid executable format\n", to: launchExecutable)
+            try expectThrows("Invalid game executable propagates launch failure") {
+                _ = try launchCore.launch(launchGame)
+            }
+
             let archive = game.root.appendingPathComponent("Data/data/data.000")
             try fm.removeItem(at: archive)
             try expectThrows("Missing primary archive") { _ = try GameInstallation.inspect(game.root) }
@@ -274,7 +325,7 @@ struct CoreTests {
             info["CFBundleVersion"] = "12.0.7.99999"
             try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: infoURL)
             try expectThrows("Wrong build") { _ = try GameInstallation.inspect(game.root) }
-            print("PASS: \(assertions) assertions. Install, restore, integrity, clone isolation, and build validation verified.")
+            print("PASS: \(assertions) assertions. Install, restore, integrity, clone isolation, launch paths, and build validation verified.")
         } catch {
             fputs("FAIL: \(error)\n", stderr)
             exit(1)

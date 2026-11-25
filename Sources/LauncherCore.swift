@@ -168,6 +168,41 @@ final class LauncherCore {
         }
     }
 
+    func launch(_ game: GameInstallation) throws -> Process {
+        _ = try GameInstallation.inspect(game.root)
+        try requireStopped()
+        let outputURL = game.logs.appendingPathComponent("GameLaunch.log")
+        try Self.ensureMutablePath(outputURL, root: game.root)
+        try fm.createDirectory(at: game.logs, withIntermediateDirectories: true)
+        if !fm.fileExists(atPath: outputURL.path) {
+            guard fm.createFile(atPath: outputURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
+                throw LauncherFailure("Could not create the game launch log.")
+            }
+        }
+        let output = try FileHandle(forWritingTo: outputURL)
+        defer { try? output.close() }
+        try output.seekToEnd()
+        let executable = game.app.appendingPathComponent("Contents/MacOS/\(gameExecutableName)")
+        let header = "\n\(Date().ISO8601Format()) Starting \(executable.path)\nWorking directory: \(game.product.path)\n"
+        try output.write(contentsOf: Data(header.utf8))
+        var environment = ProcessInfo.processInfo.environment
+        environment.removeValue(forKey: "DYLD_INSERT_LIBRARIES")
+        environment["FIRESTORM_BYPASS_LOG"] = game.logs.appendingPathComponent("FirestormCertBypass.log").path
+        let process = Process()
+        process.executableURL = executable
+        // WoW resolves its CAS data relative to the installed product directory.
+        // Launch the executable in place so App Translocation cannot separate it
+        // from the validated .fsbuild and Data directory.
+        process.currentDirectoryURL = game.product
+        process.arguments = ["-config", "Firestorm.wtf"]
+        process.environment = environment
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = output
+        process.standardError = output
+        try process.run()
+        return process
+    }
+
     func prepare(_ game: GameInstallation, locale: String, progress: (String) -> Void) throws {
         try validateLocale(locale)
         _ = try GameInstallation.inspect(game.root)

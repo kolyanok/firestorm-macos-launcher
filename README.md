@@ -6,17 +6,17 @@ An independent native launcher for **Firestorm Midnight / Silvermoon**, targetin
 > After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
 > Keep `World of Warcraft.app` inside `_midnight_` in your game folder so WoW can find its `Data` folder.
 >
-> If WoW reports `../Data: Read-only file system`, quit WoW and the launcher, then reopen the launcher from **Applications** and click **Play**.
+> Version **1.1.7** fixes `../Data: Read-only file system` after downloading the launcher. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
 
 This repository contains launcher and compatibility-patch source code, build metadata, and development checks. It does **not** contain the World of Warcraft application, game Data, compiled patch libraries, or release archives. The full binary release is a separate download and includes the prepared macOS game application and compatibility patch.
 
 ## Download
 
-**[Download Firestorm Launcher 1.1.6 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.6/Firestorm-Launcher-1.1.6-macOS-Universal.zip)**
+**[Download Firestorm Launcher 1.1.7 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.7/Firestorm-Launcher-1.1.7-macOS-Universal.zip)**
 
 One **Universal 2** package contains the launcher and prepared game client for **Intel (`x86_64`) and Apple Silicon (`arm64`)**. Requires macOS 14 or later.
 
-The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.6).
+The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.7).
 
 ## Screenshot
 
@@ -25,6 +25,7 @@ The macOS ZIP is also available under **Assets** on the [release page](https://g
 ## Features
 
 - Universal 2 support for Intel and Apple Silicon, including their matching game compatibility patches.
+- Launches WoW from its installation directory so it can locate the adjacent game data after a browser download.
 - Native macOS interface in English, with configurable game text and voice language.
 - Starter Data downloads from Firestorm with pause and resume support.
 - Installation into a new folder or selection of an existing compatible client.
@@ -59,6 +60,8 @@ Use **Locate game…** to select a client folder containing `.fsbuild`, `Data`, 
 **Create separate copy…** uses APFS clones on the same volume. It does not copy account data, saved logins, add-ons, cache, or logs from the source installation.
 
 **Verify** checks the game application against the payload manifest and validates the installation structure. It does not scan all world-data archives. A reachable login endpoint does not guarantee that the game realm is available or that an account login will succeed.
+
+If an older version shows `CASInitialize() failed to create folder ../Data: Read-only file system`, update the launcher to 1.1.7 or later and click **Play**. The corrected launcher starts the existing client executable from `_midnight_`. Launch diagnostics are written to `_midnight_/Logs/GameLaunch.log`.
 
 ## Build from source
 
@@ -97,7 +100,7 @@ The prepared game loads the supplied `libFirestormCertBypassX86.dylib` on Intel.
 
 ## Project status and licensing
 
-Game startup and server login have been reported working on Apple Silicon. The installation core passed 51 checks on each architecture, with Intel checks running through Rosetta. Preparation, file verification and backup restoration using the bundled game client also passed through the Intel launcher under Rosetta. Actual game startup and Silvermoon login on physical Intel hardware still require manual verification.
+Game startup and server login have been reported working on Apple Silicon. The installation core passed 61 checks on each architecture, with Intel checks running through Rosetta. Preparation, file verification, backup restoration and launch-directory handling also passed through the Intel launcher under Rosetta. The Intel game client reached its login screen under Rosetta. Actual game startup and Silvermoon login on physical Intel hardware still require manual verification.
 
 The original project source code and documentation are licensed under **WTFPL version 2**; see [LICENSE](LICENSE). Third-party portions retain their existing license terms and notices, including the CascLib MIT notice; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The WTFPL grant does not cover Blizzard's game application, game Data, trademarks, or other third-party materials, including those in binary releases.
 
