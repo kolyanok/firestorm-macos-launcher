@@ -6,9 +6,9 @@ This repository contains launcher and compatibility-patch source code, build met
 
 ## Download
 
-**[Download Firestorm Launcher 1.1.4 for macOS — Apple Silicon, 121 MB](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.4/Firestorm-Launcher-1.1.4-macOS.zip)**
+**[Download Firestorm Launcher for macOS — Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest)**
 
-[Latest release and release notes](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest). Requires macOS 14 or later.
+Download the macOS ZIP under **Assets**. Requires macOS 14 or later.
 
 ## Screenshot
 

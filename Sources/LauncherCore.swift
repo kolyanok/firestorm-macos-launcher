@@ -185,9 +185,16 @@ final class LauncherCore {
         let next = try mergedConfiguration(previous, locale: locale)
         let manifest = try readManifest()
         if (try? verifyFiles(game.app, manifest: manifest)) != nil,
-           (try? Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", game.app.path])) != nil,
-           previous == next {
-            progress("Files and settings are already ready.")
+           (try? Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", game.app.path])) != nil {
+            if previous == next {
+                progress("Files and settings are already ready.")
+            } else {
+                // WoW can rewrite its profile when it exits. Keep the verified app in place.
+                try requireStopped()
+                try fm.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try next.write(to: config, options: .atomic)
+                progress("Game settings updated.")
+            }
             return
         }
         progress("Verifying the bundled client…")

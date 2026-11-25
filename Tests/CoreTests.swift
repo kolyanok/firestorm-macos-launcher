@@ -155,6 +155,20 @@ struct CoreTests {
             try expect(config.contains("# keep this comment"), "Comment retained")
             try expect(try Data(contentsOf: game.root.appendingPathComponent(".fsbuild")) == originalBuild, "Build metadata retained")
             try expect(try String(contentsOf: game.product.appendingPathComponent("WTF/Account/private/saved.txt"), encoding: .utf8) == "private account fixture", "Existing accounts untouched")
+
+            let preparedAppInode = try fm.attributesOfItem(atPath: game.app.path)[.systemFileNumber] as? NSNumber
+            try expect(preparedAppInode != nil, "Prepared app has a filesystem identifier")
+            try write(config + "SET gxMaximize \"1\"\n", to: configURL)
+            try core.prepare(game, locale: "ruRU", progress: { _ in })
+            let appInodeAfterConfigRewrite = try fm.attributesOfItem(atPath: game.app.path)[.systemFileNumber] as? NSNumber
+            try expect(appInodeAfterConfigRewrite == preparedAppInode, "Game-written settings do not replace the verified app on the next launch")
+            try expect(try fm.contentsOfDirectory(atPath: backupRoot.path).sorted() == backupsBefore, "Updating settings preserves the original backup")
+            try expect(try String(contentsOf: configURL, encoding: .utf8).contains("SET gxMaximize \"1\""), "Game-written settings are retained")
+            try core.prepare(game, locale: "frFR", progress: { _ in })
+            let appInodeAfterLanguageChange = try fm.attributesOfItem(atPath: game.app.path)[.systemFileNumber] as? NSNumber
+            try expect(appInodeAfterLanguageChange == preparedAppInode, "Changing the language keeps the verified app in place")
+            try expect(try String(contentsOf: configURL, encoding: .utf8).contains("SET textLocale \"frFR\""), "The new language is saved")
+
             try core.restoreLatest(game, progress: { _ in })
             try expect(try appFingerprint(game.app) == original, "Restore exact original app files")
             try expect(try String(contentsOf: configURL, encoding: .utf8) == fixture.originalConfig, "Restore exact original config")
