@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>FirestormLauncher</string>
+  <key>CFBundleIdentifier</key><string>local.firestorm.launcher</string>
+  <key>CFBundleName</key><string>Firestorm Launcher</string>
+  <key>CFBundleDisplayName</key><string>Firestorm Launcher</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.1.4</string>
+  <key>CFBundleVersion</key><string>6</string>
+  <key>CFBundleIconFile</key><string>Firestorm.icns</string>
+  <key>LSMinimumSystemVersion</key><string>14.0</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <!-- Firestorm's pinned content-addressed CASC endpoint uses plain HTTP on a
+       numeric IP. Only game Data is downloaded; URLSession's normal HTTPS
+       certificate validation is unchanged. No account requests are made. -->
+  <key>NSAppTransportSecurity</key>
+  <dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+  <key>NSHumanReadableCopyright</key><string>Independent community launcher. Not affiliated with Blizzard Entertainment or Firestorm.</string>
+</dict>
+</plist>

@@ -1,0 +1,47 @@
+# Local game payload and generated release files
+Client.zip
+*.app/
+*.zip
+*.dmg
+*.pkg
+*.dylib
+*.exe
+*.dll
+*.o
+*.a
+Data/
+_midnight_/
+WTF/
+Cache/
+Logs/
+Errors/
+Fonts/
+Interface/
+
+# Local build and editor files
+dist/
+build/
+.build/
+.test-build/
+*.iconset/
+*.icns
+.firestorm-*/
+*.log
+*.part
+*.tmp
+*.swp
+*~
+.DS_Store
+__MACOSX/
+.idea/
+.vscode/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
