@@ -10,6 +10,10 @@ This repository contains launcher and compatibility-patch source code, build met
 
 [Latest release and release notes](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest). Requires macOS 14 or later.
 
+## Screenshot
+
+![Firestorm macOS Launcher with the Midnight game client running](docs/images/launcher.png)
+
 ## Features
 
 - Native macOS interface in English, with configurable game text and voice language.
