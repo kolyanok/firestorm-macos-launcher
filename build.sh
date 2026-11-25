@@ -30,13 +30,14 @@ cp "$payload/Client.zip" "$payload/client-manifest.json" "$app/Contents/Resource
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --deep --strict "$app"
 cp "$project/README.md" "$release/README.md"
+cp "$project/LICENSE" "$release/LICENSE"
 cp "$project/THIRD_PARTY_NOTICES.md" "$release/THIRD_PARTY_NOTICES.md"
 source="$release/Source"
 mkdir -p "$source/Sources" "$source/Tests" "$source/Resources"
 cp "$project"/Sources/*.swift "$source/Sources/"
 cp "$project/Tests/CoreTests.swift" "$source/Tests/"
 cp "$project/test.sh" "$project/build.sh" "$project/Info.plist" \
-  "$project/make_icon.swift" "$project/README.md" "$project/THIRD_PARTY_NOTICES.md" "$source/"
+  "$project/make_icon.swift" "$project/README.md" "$project/LICENSE" "$project/THIRD_PARTY_NOTICES.md" "$source/"
 cp "$payload/client-manifest.json" "$source/Resources/"
 if [[ -d "$project/ProvidedPatch" ]]; then
   ditto "$project/ProvidedPatch" "$source/ProvidedPatch"

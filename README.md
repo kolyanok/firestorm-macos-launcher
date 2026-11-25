@@ -82,6 +82,6 @@ The supplied patch changes certificate-trust checks inside the prepared game pro
 
 Startup and server login have been reported working in the author's manual setup. Compatibility has not been established across every supported Mac, operating-system version, or network environment.
 
-No repository-wide license has been selected for the original project code. Third-party portions retain their existing license terms and notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The presence of source code here does not relicense Blizzard's game application or assets.
+The original project source code and documentation are licensed under **WTFPL version 2**; see [LICENSE](LICENSE). Third-party portions retain their existing license terms and notices, including the CascLib MIT notice; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The WTFPL grant does not cover Blizzard's game application, game Data, trademarks, or other third-party materials, including those in binary releases.
 
 This is an unofficial community project. It is not affiliated with or endorsed by Blizzard Entertainment or the Firestorm administration. World of Warcraft and associated names and assets belong to their respective owners.

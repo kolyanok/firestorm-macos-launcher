@@ -1,5 +1,7 @@
 # Third-party notices
 
+The original project source code and documentation are licensed under WTFPL version 2; see [LICENSE](LICENSE). The third-party portions and materials described below retain their own terms and are excluded from that grant.
+
 ## CascLib
 
 `Sources/CASCStorage.swift` adapts format information and header-checksum constants from CascLib, including its `CascStructs.h`, `CascIndexFiles.cpp`, and `CascReadFile.cpp` sources. The notice is also retained in that source file.
