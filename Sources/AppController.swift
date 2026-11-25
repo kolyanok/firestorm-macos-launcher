@@ -131,7 +131,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSLayoutConstraint.activate([sidebar.leadingAnchor.constraint(equalTo:content.leadingAnchor),sidebar.topAnchor.constraint(equalTo:content.topAnchor),sidebar.bottomAnchor.constraint(equalTo:content.bottomAnchor),sidebar.widthAnchor.constraint(equalToConstant:205)])
         let flame = label("♨",size:40,weight:.bold,color:amber)
         let brand = label("FIRESTORM",size:18,weight:.heavy)
-        let edition = label("MACOS LAUNCHER  /  1.1.7",size:10,weight:.semibold,color:muted)
+        let edition = label("MACOS LAUNCHER  /  1.1.8",size:10,weight:.semibold,color:muted)
         let gameTab = Surface(NSColor(calibratedRed:0.19,green:0.15,blue:0.13,alpha:1),radius:9)
         let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold),label("Silvermoon · EU",size:11,color:muted)],spacing:5)
         pin(tabText,in:gameTab,insets:14)
@@ -416,7 +416,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func openSite() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/welcome")!) }
     @objc private func openDownloads() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/play")!) }
     @objc private func about() {
-        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.7"
+        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.8"
         a.informativeText = "Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game."
         a.beginSheetModal(for:window)
     }

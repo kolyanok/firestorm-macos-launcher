@@ -19,6 +19,8 @@ if [[ ! -s "$payload/Client.zip" || ! -s "$payload/client-manifest.json" ]]; the
   echo "Missing local client payload. Set FIRESTORM_CLIENT_PAYLOAD_DIR to a directory containing Client.zip and client-manifest.json." >&2
   exit 1
 fi
+# The child game's voice-chat initialization is attributed to the launcher.
+/usr/bin/plutil -extract NSMicrophoneUsageDescription raw "$project/Info.plist" >/dev/null
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$cache"
 xcrun swift -module-cache-path "$cache" "$project/make_icon.swift" "$stage/Firestorm.iconset"
 cp "$stage/Firestorm.icns" "$app/Contents/Resources/Firestorm.icns"

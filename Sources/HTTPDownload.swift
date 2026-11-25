@@ -119,7 +119,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         var request = URLRequest(url: url)
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-        request.setValue("FirestormMacLauncher/1.1.7", forHTTPHeaderField: "User-Agent")
+        request.setValue("FirestormMacLauncher/1.1.8", forHTTPHeaderField: "User-Agent")
         request.setValue("bytes=\(start)-\(end)", forHTTPHeaderField: "Range")
         let task = session.dataTask(with: request)
         context = RequestContext(identifier: task.taskIdentifier, start: start, end: end)

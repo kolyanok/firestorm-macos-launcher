@@ -6,17 +6,17 @@ An independent native launcher for **Firestorm Midnight / Silvermoon**, targetin
 > After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
 > Keep `World of Warcraft.app` inside `_midnight_` in your game folder so WoW can find its `Data` folder.
 >
-> Version **1.1.7** fixes `../Data: Read-only file system` after downloading the launcher. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
+> Version **1.1.8** fixes `../Data: Read-only file system` after downloading the launcher and the subsequent macOS privacy-check crash during voice-chat initialization. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
 
 This repository contains launcher and compatibility-patch source code, build metadata, and development checks. It does **not** contain the World of Warcraft application, game Data, compiled patch libraries, or release archives. The full binary release is a separate download and includes the prepared macOS game application and compatibility patch.
 
 ## Download
 
-**[Download Firestorm Launcher 1.1.7 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.7/Firestorm-Launcher-1.1.7-macOS-Universal.zip)**
+**[Download Firestorm Launcher 1.1.8 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.8/Firestorm-Launcher-1.1.8-macOS-Universal.zip)**
 
 One **Universal 2** package contains the launcher and prepared game client for **Intel (`x86_64`) and Apple Silicon (`arm64`)**. Requires macOS 14 or later.
 
-The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.7).
+The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.8).
 
 ## Screenshot
 
@@ -61,7 +61,9 @@ Use **Locate game…** to select a client folder containing `.fsbuild`, `Data`, 
 
 **Verify** checks the game application against the payload manifest and validates the installation structure. It does not scan all world-data archives. A reachable login endpoint does not guarantee that the game realm is available or that an account login will succeed.
 
-If an older version shows `CASInitialize() failed to create folder ../Data: Read-only file system`, update the launcher to 1.1.7 or later and click **Play**. The corrected launcher starts the existing client executable from `_midnight_`. Launch diagnostics are written to `_midnight_/Logs/GameLaunch.log`.
+If an older version shows `CASInitialize() failed to create folder ../Data: Read-only file system`, update the launcher to 1.1.8 or later and click **Play**. The corrected launcher starts the existing client executable from `_midnight_`. Launch diagnostics are written to `_midnight_/Logs/GameLaunch.log`.
+
+macOS may request microphone access for WoW's optional in-game voice chat. Choose your preferred access setting in that system prompt.
 
 ## Build from source
 
