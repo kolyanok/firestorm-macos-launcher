@@ -42,12 +42,15 @@ cp "$payload/Client.zip" "$payload/client-manifest.json" "$app/Contents/Resource
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --deep --strict --all-architectures "$app"
 cp "$project/README.md" "$release/README.md"
+if [[ -d "$project/docs" ]]; then
+  ditto "$project/docs" "$release/docs"
+fi
 cp "$project/LICENSE" "$release/LICENSE"
 cp "$project/THIRD_PARTY_NOTICES.md" "$release/THIRD_PARTY_NOTICES.md"
 source="$release/Source"
 mkdir -p "$source/Sources" "$source/Tests" "$source/Resources"
 cp "$project"/Sources/*.swift "$source/Sources/"
-cp "$project/Tests/CoreTests.swift" "$source/Tests/"
+cp "$project"/Tests/*.swift "$source/Tests/"
 cp "$project/test.sh" "$project/build.sh" "$project/Info.plist" \
   "$project/make_icon.swift" "$project/README.md" "$project/LICENSE" "$project/THIRD_PARTY_NOTICES.md" "$source/"
 cp "$payload/client-manifest.json" "$source/Resources/"
@@ -56,6 +59,9 @@ for localization in "$project"/Resources/*.lproj; do
 done
 if [[ -d "$project/ProvidedPatch" ]]; then
   ditto "$project/ProvidedPatch" "$source/ProvidedPatch"
+fi
+if [[ -d "$project/docs" ]]; then
+  ditto "$project/docs" "$source/docs"
 fi
 ditto -c -k --sequesterRsrc --keepParent "$release" "$stage/Firestorm-Launcher-macOS.zip"
 if [[ -e "$output/Firestorm-Launcher" ]]; then

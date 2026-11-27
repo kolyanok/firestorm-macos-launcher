@@ -11,6 +11,10 @@ mkdir -p "$build" "${TMPDIR:-/tmp}/firestorm-launcher-test-cache"
 xcrun swiftc -parse-as-library -swift-version 5 -target "$architecture-apple-macos14.0" \
   -module-cache-path "${TMPDIR:-/tmp}/firestorm-launcher-test-cache" \
   "$project/Sources/Localization.swift" "$project/Sources/InterfaceTranslations.swift" "$project/Sources/CoreTranslations.swift" \
-  "$project/Sources/LauncherCore.swift" "$project/Sources/CASCStorage.swift" "$project/Tests/CoreTests.swift" \
+  "$project/Sources/LauncherCore.swift" "$project/Sources/CASCStorage.swift" "$project/Sources/FirestormAPI.swift" \
+  "$project/Sources/FirestormNews.swift" "$project/Sources/FirestormRealm.swift" "$project/Sources/FirestormFixes.swift" \
+  "$project/Sources/LauncherUpdates.swift" "$project/Sources/LauncherUpdateInstaller.swift" \
+  "$project/Tests/CoreTests.swift" "$project/Tests/NewsTests.swift" "$project/Tests/RealmFixesTests.swift" \
+  "$project/Tests/WowheadLinksTests.swift" "$project/Tests/LauncherUpdateTests.swift" \
   -o "$build/CoreTests-$architecture"
 /usr/bin/arch "-$architecture" "$build/CoreTests-$architecture"

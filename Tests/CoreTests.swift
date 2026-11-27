@@ -153,6 +153,10 @@ struct CoreTests {
             .appendingPathComponent("firestorm-launcher-tests-" + UUID().uuidString)
         do {
             try checkLocalization()
+            assertions += try NewsTests.run()
+            assertions += try RealmFixesTests.run()
+            assertions += try WowheadLinksTests.run()
+            assertions += try LauncherUpdateTests.run()
             try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
             defer { try? fm.removeItem(at: temporary) }
             let fixture = try Fixture(temporary.appendingPathComponent("Primary"))

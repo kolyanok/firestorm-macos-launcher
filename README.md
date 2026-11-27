@@ -6,17 +6,17 @@ An independent native launcher for **Firestorm Midnight / Silvermoon**, targetin
 > After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
 > Keep `World of Warcraft.app` inside `_midnight_` in your game folder so WoW can find its `Data` folder.
 >
-> Version **1.1.9** adds Russian and English interface selection. Version **1.1.8** fixes `../Data: Read-only file system` after downloading the launcher and the subsequent macOS privacy-check crash during voice-chat initialization. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
+> Version **1.1.13** adds automatic GitHub release checks and an update-and-restart action. Version **1.1.12** makes Wowhead references in the fixes panel clickable and preserves bold headings and class names. Version **1.1.11** adds the latest Midnight fixes and Silvermoon's live player count and realm status. Version **1.1.10** adds official Firestorm news with pictures, dates, and English/Russian titles. Version **1.1.9** adds interface language selection. Version **1.1.8** fixes `../Data: Read-only file system` after downloading the launcher and the subsequent macOS privacy-check crash during voice-chat initialization. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
 
 This repository contains launcher and compatibility-patch source code, build metadata, and development checks. It does **not** contain the World of Warcraft application, game Data, compiled patch libraries, or release archives. The full binary release is a separate download and includes the prepared macOS game application and compatibility patch.
 
 ## Download
 
-**[Download Firestorm Launcher 1.1.9 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.9/Firestorm-Launcher-1.1.9-macOS-Universal.zip)**
+**[Download the latest Firestorm Launcher for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest)**
 
 One **Universal 2** package contains the launcher and prepared game client for **Intel (`x86_64`) and Apple Silicon (`arm64`)**. Requires macOS 14 or later.
 
-The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.9).
+The macOS ZIP is available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/latest).
 
 Choose **Interface language** in the launcher to switch between **English**, **Русский**, and the system language. The interface updates immediately and remembers your choice.
 
@@ -29,6 +29,11 @@ Choose **Interface language** in the launcher to switch between **English**, **�
 - Universal 2 support for Intel and Apple Silicon, including their matching game compatibility patches.
 - Launches WoW from its installation directory so it can locate the adjacent game data after a browser download.
 - Native macOS interface in English and Russian, with automatic system-language selection and a saved interface-language preference. Game text and voice language have their own selector.
+- Official Firestorm news from the original launcher's API, with thumbnails, dates, English/Russian titles, and browser links. News follows the interface language, refreshes every 30 minutes while the launcher is visible, and can be refreshed manually. The Play button and installation status remain visible while browsing.
+- Latest Midnight fixes in English/Russian, with bold section headings and class names, readable paragraphs and lists, a scrollable full-text panel, and a link to the complete changelog. Fixes refresh every five minutes while visible.
+- Clickable Wowhead references inside fixes, preserving the original localized destinations. Links are highlighted and open in the default browser.
+- Automatic checks for stable GitHub releases at startup and every six hours, with a manual check and an update-and-restart action. Updates replace only the launcher application; installed games and their settings stay in place.
+- Silvermoon realm status and player count from Firestorm's API, refreshed every two minutes while visible. Realm availability uses the server heartbeat; a failed request is shown as unavailable rather than zero players.
 - Starter Data downloads from Firestorm with pause and resume support.
 - Installation into a new folder or selection of an existing compatible client.
 - Independent APFS cloning of existing game Data on the same volume.
@@ -37,6 +42,8 @@ Choose **Interface language** in the launcher to switch between **English**, **�
 - Logs and cache reset controls. Account credentials are entered only in the game.
 
 The launcher is pinned to build **12.0.7.68974**. It does not automatically upgrade to newer game builds.
+
+News, fixes and realm status load independently of installation and game login. Unavailable feeds do not prevent playing. They do not require a Firestorm account or send account credentials. The protocols recovered from the official launcher are documented in [docs/official-news-api.md](docs/official-news-api.md). GitHub update behavior and verification are described in [docs/launcher-updates.md](docs/launcher-updates.md).
 
 ## Install and play
 
@@ -104,7 +111,7 @@ The prepared game loads the supplied `libFirestormCertBypassX86.dylib` on Intel.
 
 ## Project status and licensing
 
-Game startup and server login have been reported working on Apple Silicon. The installation core passed 61 checks on each architecture, with Intel checks running through Rosetta. Preparation, file verification, backup restoration and launch-directory handling also passed through the Intel launcher under Rosetta. The Intel game client reached its login screen under Rosetta. Actual game startup and Silvermoon login on physical Intel hardware still require manual verification.
+Game startup and server login have been reported working on Apple Silicon. The development suite passed 1,006 assertions on each architecture, with Intel checks running through Rosetta. Coverage includes installation, localized feeds and formatting, update metadata and checksums, and replacement-helper rollback using temporary fixtures. Preparation, file verification, backup restoration and launch-directory handling also passed through the Intel launcher under Rosetta. The Intel game client reached its login screen under Rosetta. Actual game startup and Silvermoon login on physical Intel hardware still require manual verification.
 
 The original project source code and documentation are licensed under **WTFPL version 2**; see [LICENSE](LICENSE). Third-party portions retain their existing license terms and notices, including the CascLib MIT notice; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The WTFPL grant does not cover Blizzard's game application, game Data, trademarks, or other third-party materials, including those in binary releases.
 

@@ -39,6 +39,10 @@ final class HeroView: NSView {
     }
 }
 
+private final class LauncherScrollDocument: NSView {
+    override var isFlipped: Bool { true }
+}
+
 @MainActor
 final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var window: NSWindow!
@@ -49,6 +53,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var gameProcess: Process?
     private var timer: Timer?
     private var connection: NWConnection?
+    private let news = FirestormNewsView(frame: .zero)
+    private let realmStatus = FirestormRealmView(frame: .zero)
+    private let fixes = FirestormFixesView(frame: .zero)
+    private let updates = LauncherUpdatesView()
     private var path = NSTextField(wrappingLabelWithString: L("Choose an existing game folder containing Data and _midnight_."))
     private var status = NSTextField(wrappingLabelWithString: L("Install the game or choose an existing client to begin."))
     private var network = NSTextField(labelWithString: L("●  Checking login endpoint…"))
@@ -72,6 +80,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var messages = [String]()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updates.downloadUnavailableReason = { [weak self] in
+            guard let self else { return "The launcher is not ready to update." }
+            return self.busy ? "Wait for the current game operation to finish, then try again." : nil
+        }
+        updates.installationUnavailableReason = { [weak self] in
+            guard let self else { return "The launcher is not ready to update." }
+            if self.busy { return "Wait for the current game operation to finish, then try again." }
+            if self.gameProcess?.isRunning == true || self.game?.isTerminated == false || LauncherCore.gameIsRunning() {
+                return "Close World of Warcraft before installing the launcher update."
+            }
+            if self.window?.attachedSheet != nil {
+                return "Close the open dialog before installing the launcher update."
+            }
+            return nil
+        }
+        updates.preparationChanged = { [weak self] in self?.updateButtons() }
         buildWindow()
         if let saved = UserDefaults.standard.string(forKey:"ClientRoot"), let found = try? GameInstallation.inspect(URL(fileURLWithPath:saved)) { selected = found }
         if selected == nil { selected = LauncherCore.candidates().compactMap { try? GameInstallation.inspect($0) }.first }
@@ -81,6 +105,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps:true)
         verify()
         checkNetwork()
+        updates.startAutomaticChecks()
         timer = Timer.scheduledTimer(withTimeInterval:3,repeats:true) { [weak self] _ in
             Task { @MainActor in self?.observeGame() }
         }
@@ -88,10 +113,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender:NSApplication)->Bool { true }
     func applicationShouldTerminate(_ sender:NSApplication)->NSApplication.TerminateReply {
-        if busy { NSSound.beep(); return .terminateCancel }
+        if busy || (updates.isPreparing && !updates.replacementStarted) { NSSound.beep(); return .terminateCancel }
         return .terminateNow
     }
-    func windowShouldClose(_ sender:NSWindow)->Bool { !busy }
+    func windowShouldClose(_ sender:NSWindow)->Bool { !busy && !updates.isPreparing }
 
     private func label(_ text:String,size:CGFloat = 13,weight:NSFont.Weight = .regular,color:NSColor = .labelColor)->NSTextField {
         let v = NSTextField(labelWithString:text)
@@ -126,6 +151,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window = NSWindow(contentRect:NSRect(x:0,y:0,width:1050,height:740),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
         }
         mutationButtons.removeAll()
+        news.removeFromSuperview()
+        realmStatus.removeFromSuperview()
+        fixes.removeFromSuperview()
+        updates.removeFromSuperview()
         // Fresh controls let AppKit recreate intrinsic sizing and wrapping constraints.
         // Installation, download and running-game state live on the controller.
         path = NSTextField(wrappingLabelWithString: L("Choose an existing game folder containing Data and _midnight_."))
@@ -152,7 +181,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let brand = label("FIRESTORM",size:18,weight:.heavy)
         let edition = label(LF("MACOS LAUNCHER  /  %@", launcherVersion),size:10,weight:.semibold,color:muted)
         let gameTab = Surface(NSColor(calibratedRed:0.19,green:0.15,blue:0.13,alpha:1),radius:9)
-        let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold),label("Silvermoon · EU",size:11,color:muted)],spacing:5)
+        let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold)],spacing:5)
         pin(tabText,in:gameTab,insets:14)
         let links = column([button(L("Install game"),#selector(installGame)),button(L("Install location…"),#selector(chooseInstallLocation)),button(L("Firestorm website ↗"),#selector(openSite)),button(L("About launcher"),#selector(about))],spacing:10)
         interfaceLanguage.removeAllItems()
@@ -163,10 +192,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         interfaceLanguage.action = #selector(interfaceLanguageChanged)
         interfaceLanguage.setAccessibilityLabel(L("Interface language"))
         let interfacePreferences = column([label(L("Interface language"), size:12, color:muted), interfaceLanguage], spacing:6)
-        let side = column([flame,brand,edition,label(L("LIBRARY"),size:10,weight:.bold,color:muted),gameTab,links,interfacePreferences],spacing:14)
-        side.setCustomSpacing(30,after:edition); side.setCustomSpacing(28,after:gameTab)
+        let side = column([flame,brand,edition,label(L("LIBRARY"),size:10,weight:.bold,color:muted),gameTab,realmStatus,links,interfacePreferences],spacing:14)
+        side.setCustomSpacing(30,after:edition)
         sidebar.addSubview(side); side.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([side.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),side.trailingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:-18),side.topAnchor.constraint(equalTo:sidebar.topAnchor,constant:30),gameTab.widthAnchor.constraint(equalTo:side.widthAnchor)])
+        NSLayoutConstraint.activate([side.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),side.trailingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:-18),side.topAnchor.constraint(equalTo:sidebar.topAnchor,constant:30),gameTab.widthAnchor.constraint(equalTo:side.widthAnchor),realmStatus.widthAnchor.constraint(equalTo:side.widthAnchor)])
         let foot = label(L("Intel & Apple Silicon · macOS 14+\nCommunity launcher"),size:10,color:muted)
         sidebar.addSubview(foot); foot.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([foot.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),foot.bottomAnchor.constraint(equalTo:sidebar.bottomAnchor,constant:-22)])
@@ -174,7 +203,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let hero = HeroView(); hero.wantsLayer = true; hero.layer?.cornerRadius = 14; hero.layer?.masksToBounds = true
         let heroText = column([label("WORLD OF WARCRAFT",size:11,weight:.bold,color:amber),label("MIDNIGHT",size:46,weight:.heavy),label(L("Your journey to Silvermoon"),size:16,color:.secondaryLabelColor),label(L("12.0.7.68974  ·  Native macOS client"),size:11,color:muted)],spacing:8)
         hero.addSubview(heroText); heroText.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([hero.heightAnchor.constraint(equalToConstant:180),heroText.leadingAnchor.constraint(equalTo:hero.leadingAnchor,constant:26),heroText.centerYAnchor.constraint(equalTo:hero.centerYAnchor)])
+        NSLayoutConstraint.activate([hero.heightAnchor.constraint(equalToConstant:140),heroText.leadingAnchor.constraint(equalTo:hero.leadingAnchor,constant:26),heroText.centerYAnchor.constraint(equalTo:hero.centerYAnchor)])
         network.font = .systemFont(ofSize:11); network.textColor = muted
         badge.font = .systemFont(ofSize:10,weight:.bold); badge.textColor = amber
         let clientCard = Surface(NSColor(calibratedRed:0.09,green:0.106,blue:0.14,alpha:1),radius:12)
@@ -200,15 +229,57 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pause.target = self; pause.action = #selector(pauseInstall); pause.bezelStyle = .rounded; pause.isHidden = true
         play.target = self; play.action = #selector(launch); play.bezelStyle = .rounded; play.controlSize = .large; play.bezelColor = amber; play.contentTintColor = .black; play.font = .systemFont(ofSize:18,weight:.bold); play.keyEquivalent = "\r"
         let bottom = row([progress,play,pause],spacing:12)
-        let main = column([row([label(L("GAMES  /  MIDNIGHT"),size:11,weight:.bold,color:muted),network],spacing:34),hero,clientCard,actions,prefs,status,detail,downloadBar,bottom],spacing:12)
-        main.setCustomSpacing(8,after:status)
-        content.addSubview(main); main.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([main.leadingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:28),main.trailingAnchor.constraint(equalTo:content.trailingAnchor,constant:-28),main.topAnchor.constraint(equalTo:content.topAnchor,constant:25),hero.widthAnchor.constraint(equalTo:main.widthAnchor),clientCard.widthAnchor.constraint(equalTo:main.widthAnchor),path.widthAnchor.constraint(equalTo:cardStack.widthAnchor),status.widthAnchor.constraint(equalTo:main.widthAnchor),detail.widthAnchor.constraint(equalTo:main.widthAnchor),downloadBar.widthAnchor.constraint(equalTo:main.widthAnchor),play.widthAnchor.constraint(equalToConstant:188),play.heightAnchor.constraint(equalToConstant:44)])
+        // Browsing news can extend the page without moving Play or installation
+        // progress offscreen. The document remains top-aligned on small displays.
+        let main = column([row([label(L("GAMES  /  MIDNIGHT"),size:11,weight:.bold,color:muted),network],spacing:34),updates,hero,news,clientCard,actions,prefs,fixes],spacing:12)
+        main.detachesHiddenViews = true
+        let scroll = NSScrollView()
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        scroll.borderType = .noBorder
+        let document = LauncherScrollDocument()
+        scroll.documentView = document
+        document.addSubview(main)
+        document.translatesAutoresizingMaskIntoConstraints = false
+        main.translatesAutoresizingMaskIntoConstraints = false
+        let footer = column([status,detail,downloadBar,bottom],spacing:8)
+        content.addSubview(scroll); scroll.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(footer); footer.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            scroll.leadingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:28),
+            scroll.trailingAnchor.constraint(equalTo:content.trailingAnchor,constant:-28),
+            scroll.topAnchor.constraint(equalTo:content.topAnchor,constant:25),
+            scroll.bottomAnchor.constraint(equalTo:footer.topAnchor,constant:-16),
+            footer.leadingAnchor.constraint(equalTo:scroll.leadingAnchor),
+            footer.trailingAnchor.constraint(equalTo:scroll.trailingAnchor),
+            footer.bottomAnchor.constraint(equalTo:content.bottomAnchor,constant:-22),
+            document.widthAnchor.constraint(equalTo:scroll.contentView.widthAnchor),
+            main.leadingAnchor.constraint(equalTo:document.leadingAnchor),
+            main.trailingAnchor.constraint(equalTo:document.trailingAnchor),
+            main.topAnchor.constraint(equalTo:document.topAnchor),
+            main.bottomAnchor.constraint(equalTo:document.bottomAnchor),
+            hero.widthAnchor.constraint(equalTo:main.widthAnchor),
+            updates.widthAnchor.constraint(equalTo:main.widthAnchor),
+            news.widthAnchor.constraint(equalTo:main.widthAnchor),
+            fixes.widthAnchor.constraint(equalTo:main.widthAnchor),
+            clientCard.widthAnchor.constraint(equalTo:main.widthAnchor),
+            path.widthAnchor.constraint(equalTo:cardStack.widthAnchor),
+            status.widthAnchor.constraint(equalTo:footer.widthAnchor),
+            detail.widthAnchor.constraint(equalTo:footer.widthAnchor),
+            downloadBar.widthAnchor.constraint(equalTo:footer.widthAnchor),
+            play.widthAnchor.constraint(equalToConstant:188),
+            play.heightAnchor.constraint(equalToConstant:44),
+        ])
+        news.reload(language: LauncherLocalization.language)
+        realmStatus.reload(language: LauncherLocalization.language)
+        fixes.reload(language: LauncherLocalization.language)
+        updates.refreshLocalization()
         updateButtons()
     }
 
     @objc private func interfaceLanguageChanged() {
-        guard !busy else { return }
+        guard !busy, !updates.isPreparing else { return }
         let index = interfaceLanguage.indexOfSelectedItem
         guard interfaceLanguageIDs.indices.contains(index) else { return }
         let badgeKey = InterfaceTranslations.russian.first { $0.value == badge.stringValue }?.key ?? badge.stringValue
@@ -240,10 +311,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     private func log(_ text:String,error:Bool = false) { status.stringValue = text; status.textColor = error ? .systemRed : .labelColor; messages.append("\(Date().formatted(date:.omitted,time:.standard))  \(text)") }
     private func updateButtons() {
-        for b in mutationButtons { b.isEnabled = !busy }
-        language.isEnabled = !busy
-        interfaceLanguage.isEnabled = !busy
-        play.isEnabled = !busy
+        let controlsEnabled = !busy && !updates.isPreparing
+        for b in mutationButtons { b.isEnabled = controlsEnabled }
+        language.isEnabled = controlsEnabled
+        interfaceLanguage.isEnabled = controlsEnabled
+        play.isEnabled = controlsEnabled
         if pendingInstallDestination != nil { play.title = installCancellation == nil ? L("Resume install") : L("Installing…") }
         else { play.title = selected == nil ? L("Install") : (gameProcess?.isRunning == true || game?.isTerminated == false ? L("Return to game") : L("Play")) }
         pause.isHidden = installCancellation == nil
@@ -252,7 +324,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     private func saveSelection(_ game:GameInstallation) { pendingInstallDestination = nil; selected = game; UserDefaults.standard.set(game.root.path,forKey:"ClientRoot"); displayPath() }
     @objc private func chooseInstallLocation() {
-        guard !busy else { return }
+        guard !busy, !updates.isPreparing else { return }
         let panel = NSSavePanel(); panel.title = L("Install Firestorm Midnight"); panel.nameFieldStringValue = "Firestorm Midnight"; panel.canCreateDirectories = true
         panel.directoryURL = installDestination.deletingLastPathComponent()
         panel.message = L("Choose a new folder. The macOS client is included and starter Data downloads directly from Firestorm.")
@@ -264,7 +336,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     @objc private func installGame() {
-        guard !busy else { return }
+        guard !busy, !updates.isPreparing else { return }
         let target = pendingInstallDestination ?? installDestination
         if FileManager.default.fileExists(atPath:target.path) {
             if let existing = try? GameInstallation.inspect(target) { saveSelection(existing); verify() }
@@ -302,7 +374,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func pauseInstall() { installCancellation?.cancel(); pause.isEnabled = false; log(L("Pausing… Downloaded parts will be kept.")) }
     private func work(_ operation:@escaping (@escaping (String)->Void)throws->String,then:(()->Void)? = nil) {
-        guard !busy else { return }
+        guard !busy, !updates.isPreparing else { return }
         busy = true; updateButtons()
         DispatchQueue.global(qos:.userInitiated).async {
             let result = Result { try operation { message in DispatchQueue.main.async { self.log(message) } } }
@@ -351,7 +423,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alert.beginSheetModal(for:window) { response in guard response == .alertFirstButtonReturn else { return }; self.work({ progress in try self.core.restoreLatest(selected,progress:progress); return L("Previous client and settings restored.") },then:{self.badge.stringValue = L("VERIFY CLIENT")}) }
     }
     @objc private func launch() {
-        guard !busy, !launchNoticeVisible else { return }
+        guard !busy, !updates.isPreparing, !launchNoticeVisible else { return }
         if pendingInstallDestination != nil { installGame(); return }
         guard let selected else { installGame(); return }
         if let process = gameProcess, process.isRunning,
@@ -468,7 +540,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func about() {
         let a = NSAlert(); a.messageText = "Firestorm Launcher \(launcherVersion)"
         a.informativeText = L("Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game.")
-        a.beginSheetModal(for:window)
+        a.addButton(withTitle: L("OK"))
+        a.addButton(withTitle: L("Check for updates…"))
+        a.beginSheetModal(for:window) { [weak self] response in
+            guard response == .alertSecondButtonReturn else { return }
+            self?.updates.checkForUpdates()
+        }
     }
     private func checkNetwork() {
         let c = NWConnection(host:"eu.mnight.fstorm.eu",port:1119,using:.tcp); connection = c
