@@ -22,7 +22,7 @@ Choose **Interface language** in the launcher to switch between **English**, **Ð
 
 ## Screenshot
 
-![Firestorm macOS Launcher with the Midnight game client running](docs/images/launcher.png)
+![Firestorm macOS Launcher 1.1.13 with official news and Silvermoon realm status](docs/images/launcher.png)
 
 ## Features
 
