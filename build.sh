@@ -31,8 +31,13 @@ for architecture in arm64 x86_64; do
 done
 xcrun lipo -create "$stage/FirestormLauncher-arm64" "$stage/FirestormLauncher-x86_64" \
   -output "$app/Contents/MacOS/FirestormLauncher"
-xcrun lipo "$app/Contents/MacOS/FirestormLauncher" -verify_arch arm64 x86_64
+for architecture in arm64 x86_64; do
+  xcrun lipo -verify_arch "$architecture" "$app/Contents/MacOS/FirestormLauncher"
+done
 cp "$project/Info.plist" "$app/Contents/Info.plist"
+for localization in "$project"/Resources/*.lproj; do
+  ditto "$localization" "$app/Contents/Resources/$(basename "$localization")"
+done
 cp "$payload/Client.zip" "$payload/client-manifest.json" "$app/Contents/Resources/"
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --deep --strict --all-architectures "$app"
@@ -46,6 +51,9 @@ cp "$project/Tests/CoreTests.swift" "$source/Tests/"
 cp "$project/test.sh" "$project/build.sh" "$project/Info.plist" \
   "$project/make_icon.swift" "$project/README.md" "$project/LICENSE" "$project/THIRD_PARTY_NOTICES.md" "$source/"
 cp "$payload/client-manifest.json" "$source/Resources/"
+for localization in "$project"/Resources/*.lproj; do
+  ditto "$localization" "$source/Resources/$(basename "$localization")"
+done
 if [[ -d "$project/ProvidedPatch" ]]; then
   ditto "$project/ProvidedPatch" "$source/ProvidedPatch"
 fi

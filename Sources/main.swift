@@ -27,7 +27,7 @@ struct Launcher {
                     }
                     print(result.root.path)
                 default:
-                    throw NSError(domain:"Launcher",code:2,userInfo:[NSLocalizedDescriptionKey:"Usage: --install PATH [enUS|ruRU] | --check PATH | --prepare PATH | --clone SOURCE DEST | --restore PATH"])
+                    throw NSError(domain:"Launcher",code:2,userInfo:[NSLocalizedDescriptionKey:L("Usage: --install PATH [enUS|ruRU] | --check PATH | --prepare PATH | --clone SOURCE DEST | --restore PATH")])
                 }
                 return
             } catch { FileHandle.standardError.write(Data((error.localizedDescription + "\n").utf8)); exit(1) }
@@ -35,13 +35,17 @@ struct Launcher {
         let app = NSApplication.shared
         let controller = AppController()
         app.setActivationPolicy(.regular); app.delegate = controller
-        let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
-        let appMenu = NSMenu(); appMenu.addItem(withTitle:"Quit Firestorm Launcher",action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q"); item.submenu = appMenu
-        let editItem = NSMenuItem(); menu.addItem(editItem); let edit = NSMenu(title:"Edit")
-        edit.addItem(withTitle:"Copy",action:#selector(NSText.copy(_:)),keyEquivalent:"c")
-        edit.addItem(withTitle:"Paste",action:#selector(NSText.paste(_:)),keyEquivalent:"v")
-        edit.addItem(withTitle:"Select All",action:#selector(NSText.selectAll(_:)),keyEquivalent:"a"); editItem.submenu = edit
-        app.mainMenu = menu
+        updateMenu()
         withExtendedLifetime(controller) { app.run() }
+    }
+
+    @MainActor static func updateMenu() {
+        let menu = NSMenu(); let item = NSMenuItem(); menu.addItem(item)
+        let appMenu = NSMenu(); appMenu.addItem(withTitle:L("Quit Firestorm Launcher"),action:#selector(NSApplication.terminate(_:)),keyEquivalent:"q"); item.submenu = appMenu
+        let editItem = NSMenuItem(); menu.addItem(editItem); let edit = NSMenu(title:L("Edit"))
+        edit.addItem(withTitle:L("Copy"),action:#selector(NSText.copy(_:)),keyEquivalent:"c")
+        edit.addItem(withTitle:L("Paste"),action:#selector(NSText.paste(_:)),keyEquivalent:"v")
+        edit.addItem(withTitle:L("Select All"),action:#selector(NSText.selectAll(_:)),keyEquivalent:"a"); editItem.submenu = edit
+        NSApp.mainMenu = menu
     }
 }

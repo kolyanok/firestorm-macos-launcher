@@ -49,7 +49,7 @@ enum CASCStorage {
     static func create(in directory: URL, objects: [CASCObject]) throws {
         let files = FileManager.default
         guard directory.isFileURL, !objects.isEmpty else {
-            throw LauncherFailure("CASC storage requires a local folder and at least one downloaded object.")
+            throw LauncherFailure(L("CASC storage requires a local folder and at least one downloaded object."))
         }
         let destination = directory.standardizedFileURL
         let parent = destination.deletingLastPathComponent()
@@ -57,7 +57,7 @@ enum CASCStorage {
         if let attrs = try? files.attributesOfItem(atPath: destination.path) {
             guard attrs[.type] as? FileAttributeType == .typeDirectory,
                   try files.contentsOfDirectory(atPath: destination.path).isEmpty else {
-                throw LauncherFailure("CASC storage can only be created in a new or empty data folder.")
+                throw LauncherFailure(L("CASC storage can only be created in a new or empty data folder."))
             }
             wasEmptyDirectory = true
         }
@@ -70,18 +70,18 @@ enum CASCStorage {
             let key = try decodeKey(object.key)
             let normalizedKey = object.key.lowercased()
             guard keys.insert(normalizedKey).inserted, prefixes.insert(Data(key.prefix(9))).inserted else {
-                throw LauncherFailure("Duplicate or colliding CASC object keys were supplied.")
+                throw LauncherFailure(L("Duplicate or colliding CASC object keys were supplied."))
             }
-            guard object.file.isFileURL else { throw LauncherFailure("A downloaded CASC object is not a local file.") }
+            guard object.file.isFileURL else { throw LauncherFailure(L("A downloaded CASC object is not a local file.")) }
             let attrs = try files.attributesOfItem(atPath: object.file.path)
             guard attrs[.type] as? FileAttributeType == .typeRegular,
                   let size = attrs[.size] as? NSNumber else {
-                throw LauncherFailure("A downloaded CASC object is not a regular file.")
+                throw LauncherFailure(L("A downloaded CASC object is not a regular file."))
             }
             let length = size.uint64Value
             guard length >= 9, length <= UInt64(UInt32.max) - spanHeaderSize,
                   totalLength + length + spanHeaderSize < segmentSize else {
-                throw LauncherFailure("The starter objects exceed the supported single CASC archive size.")
+                throw LauncherFailure(L("The starter objects exceed the supported single CASC archive size."))
             }
             try validateBLTE(object.file, key: key, length: length)
             sources.append(Source(key: key, file: object.file, length: length))
@@ -93,7 +93,7 @@ enum CASCStorage {
         defer { try? files.removeItem(at: stage) }
         let archiveURL = stage.appendingPathComponent("data.000")
         guard files.createFile(atPath: archiveURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
-            throw LauncherFailure("Could not create the starter CASC archive.")
+            throw LauncherFailure(L("Could not create the starter CASC archive."))
         }
         let archive = try FileHandle(forWritingTo: archiveURL)
         defer { try? archive.close() }
@@ -109,13 +109,13 @@ enum CASCStorage {
                 while remaining > 0 {
                     let requested = Int(min(remaining, 4 * 1024 * 1024))
                     guard let block = try input.read(upToCount: requested), !block.isEmpty else {
-                        throw LauncherFailure("A downloaded CASC object changed while storage was being created.")
+                        throw LauncherFailure(L("A downloaded CASC object changed while storage was being created."))
                     }
                     try archive.write(contentsOf: block)
                     remaining -= UInt64(block.count)
                 }
                 if let trailing = try input.read(upToCount: 1), !trailing.isEmpty {
-                    throw LauncherFailure("A downloaded CASC object changed while storage was being created.")
+                    throw LauncherFailure(L("A downloaded CASC object changed while storage was being created."))
                 }
                 try input.close()
             } catch {
@@ -141,7 +141,7 @@ enum CASCStorage {
             // rmdir only succeeds while it remains empty; never recursively
             // remove a destination another process may have populated.
             guard Darwin.rmdir(destination.path) == 0 else {
-                throw LauncherFailure("The destination data folder changed during CASC installation.")
+                throw LauncherFailure(L("The destination data folder changed during CASC installation."))
             }
         }
         do {
@@ -166,7 +166,7 @@ enum CASCStorage {
     /// tables and native runtime state before any publication begins.
     static func rebuildIndices(in directory: URL) throws {
         let files = FileManager.default
-        guard !LauncherCore.gameIsRunning() else { throw LauncherFailure("Close World of Warcraft before repairing game data indices.") }
+        guard !LauncherCore.gameIsRunning() else { throw LauncherFailure(L("Close World of Warcraft before repairing game data indices.")) }
         let directory = directory.standardizedFileURL
         let legacy = try legacyIndices(in: directory)
         let parent = directory.deletingLastPathComponent()
@@ -188,16 +188,16 @@ enum CASCStorage {
         for name in names where name == "RepairMarker.psv" || name == "shmem" || name == indexFormatMarker || name.hasPrefix("index.lock.") {
             let file = directory.appendingPathComponent(name)
             guard try files.attributesOfItem(atPath: file.path)[.type] as? FileAttributeType == .typeRegular else {
-                throw LauncherFailure("The index runtime state contains an unsupported file: \(name).")
+                throw LauncherFailure(LF("The index runtime state contains an unsupported file: %@.", name))
             }
             originals[name] = try Data(contentsOf: file)
         }
-        guard !LauncherCore.gameIsRunning() else { throw LauncherFailure("Close World of Warcraft before repairing game data indices.") }
+        guard !LauncherCore.gameIsRunning() else { throw LauncherFailure(L("Close World of Warcraft before repairing game data indices.")) }
         // Re-read only for publication concurrency: a running client or another
         // installer must not have replaced a table after the initial snapshot.
         for (name, bytes) in originals {
             guard try Data(contentsOf: directory.appendingPathComponent(name)) == bytes else {
-                throw LauncherFailure("Game data indices changed while repair was being prepared. Close the game and try again.")
+                throw LauncherFailure(L("Game data indices changed while repair was being prepared. Close the game and try again."))
             }
         }
         try files.createDirectory(at: backup, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
@@ -209,7 +209,7 @@ enum CASCStorage {
         var removedRuntime = [String]()
         var replaced = [String]()
         do {
-            guard !LauncherCore.gameIsRunning() else { throw LauncherFailure("Close World of Warcraft before repairing game data indices.") }
+            guard !LauncherCore.gameIsRunning() else { throw LauncherFailure(L("Close World of Warcraft before repairing game data indices.")) }
             for bucket in 0..<16 {
                 let name = String(format: "%02x00000001.idx", bucket)
                 try atomicRename(stage.appendingPathComponent(name), directory.appendingPathComponent(name))
@@ -238,14 +238,14 @@ enum CASCStorage {
                 do { try files.copyItem(at: backup.appendingPathComponent(name), to: directory.appendingPathComponent(name)) }
                 catch { rollbackFailed = true }
             }
-            if rollbackFailed { throw LauncherFailure("Index repair could not finish its rollback. Original indices are saved in \(backup.path).") }
+            if rollbackFailed { throw LauncherFailure(LF("Index repair could not finish its rollback. Original indices are saved in %@.", backup.path)) }
             throw error
         }
     }
 
     private static func atomicRename(_ source: URL, _ destination: URL) throws {
         guard Darwin.rename(source.path, destination.path) == 0 else {
-            throw LauncherFailure("Could not replace game data index \(destination.lastPathComponent): \(String(cString: strerror(errno))).")
+            throw LauncherFailure(LF("Could not replace game data index %@: %@.", destination.lastPathComponent, String(cString: strerror(errno))))
         }
     }
 
@@ -259,17 +259,17 @@ enum CASCStorage {
         let directory = directory.standardizedFileURL
         guard directory.isFileURL, directory.resolvingSymlinksInPath().standardizedFileURL.path == directory.path,
               try files.attributesOfItem(atPath: directory.path)[.type] as? FileAttributeType == .typeDirectory else {
-            throw LauncherFailure("Index repair requires an ordinary local data directory.")
+            throw LauncherFailure(L("Index repair requires an ordinary local data directory."))
         }
         let expectedNames = Set((0..<16).map { String(format: "%02x00000001.idx", $0) })
         let actualNames = Set(try files.contentsOfDirectory(atPath: directory.path).filter { $0.hasSuffix(".idx") })
-        guard actualNames == expectedNames else { throw LauncherFailure("These are not legacy launcher-generated indices.") }
+        guard actualNames == expectedNames else { throw LauncherFailure(L("These are not legacy launcher-generated indices.")) }
         let archive = directory.appendingPathComponent("data.000")
         let archiveAttributes = try files.attributesOfItem(atPath: archive.path)
         guard archiveAttributes[.type] as? FileAttributeType == .typeRegular,
               let archiveSize = archiveAttributes[.size] as? NSNumber,
               archiveSize.uint64Value > 0, archiveSize.uint64Value < segmentSize else {
-            throw LauncherFailure("The legacy starter archive is missing or unsupported.")
+            throw LauncherFailure(L("The legacy starter archive is missing or unsupported."))
         }
         var entries = [Entry]()
         var snapshot = [String: Data]()
@@ -285,17 +285,17 @@ enum CASCStorage {
             let attributes = try files.attributesOfItem(atPath: url.path)
             guard attributes[.type] as? FileAttributeType == .typeRegular,
                   let fileSize = attributes[.size] as? NSNumber, fileSize.intValue >= 40, fileSize.intValue < 0x10000 else {
-                throw LauncherFailure("These are not legacy launcher-generated indices.")
+                throw LauncherFailure(L("These are not legacy launcher-generated indices."))
             }
             let data = try Data(contentsOf: url)
             guard data.count == fileSize.intValue, u32(data, 0) == 16,
                   Array(data[8..<16]) == [7, 0, UInt8(bucket), 0, 4, 5, 9, 30],
                   u64(data, 16) == segmentSize,
                   u32(data, 4) == lookup3(Array(data[8..<24])).high else {
-                throw LauncherFailure("These are not legacy launcher-generated indices.")
+                throw LauncherFailure(L("These are not legacy launcher-generated indices."))
             }
             let length = Int(u32(data, 32))
-            guard length % 18 == 0, length <= data.count - 40 else { throw LauncherFailure("A legacy index table is incomplete.") }
+            guard length % 18 == 0, length <= data.count - 40 else { throw LauncherFailure(L("A legacy index table is incomplete.")) }
             var high: UInt32 = 0
             var low: UInt32 = 0
             for cursor in stride(from: 40, to: 40 + length, by: 18) {
@@ -308,11 +308,11 @@ enum CASCStorage {
                 let entry = Entry(key: prefix + [UInt8](repeating: 0, count: 7), offset: offset, length: spanLength)
                 guard entry.bucket == bucket, spanLength > UInt32(spanHeaderSize), offset < archiveSize.uint64Value,
                       UInt64(spanLength) <= archiveSize.uint64Value - offset else {
-                    throw LauncherFailure("A legacy index entry is invalid.")
+                    throw LauncherFailure(L("A legacy index entry is invalid."))
                 }
                 entries.append(entry)
             }
-            guard u32(data, 36) == high else { throw LauncherFailure("A legacy index checksum is invalid.") }
+            guard u32(data, 36) == high else { throw LauncherFailure(L("A legacy index checksum is invalid.")) }
             snapshot[name] = data
         }
         return LegacyIndices(entries: entries, files: snapshot)
@@ -320,7 +320,7 @@ enum CASCStorage {
 
     private static func decodeKey(_ text: String) throws -> [UInt8] {
         let bytes = Array(text.utf8)
-        guard bytes.count == 32 else { throw LauncherFailure("An encoded CASC object key must contain 32 hexadecimal characters.") }
+        guard bytes.count == 32 else { throw LauncherFailure(L("An encoded CASC object key must contain 32 hexadecimal characters.")) }
         func nibble(_ byte: UInt8) -> UInt8? {
             switch byte {
             case 48...57: return byte - 48
@@ -332,7 +332,7 @@ enum CASCStorage {
         var result: [UInt8] = []
         for cursor in stride(from: 0, to: bytes.count, by: 2) {
             guard let high = nibble(bytes[cursor]), let low = nibble(bytes[cursor + 1]) else {
-                throw LauncherFailure("A CASC object key contains a non-hexadecimal character.")
+                throw LauncherFailure(L("A CASC object key contains a non-hexadecimal character."))
             }
             result.append((high << 4) | low)
         }
@@ -344,12 +344,12 @@ enum CASCStorage {
         defer { try? handle.close() }
         guard let prefix = try handle.read(upToCount: 8), prefix.count == 8,
               prefix.prefix(4) == Data("BLTE".utf8) else {
-            throw LauncherFailure("A starter CASC object does not contain a BLTE header.")
+            throw LauncherFailure(L("A starter CASC object does not contain a BLTE header."))
         }
         let p = Array(prefix)
         let headerLength = (UInt32(p[4]) << 24) | (UInt32(p[5]) << 16) | (UInt32(p[6]) << 8) | UInt32(p[7])
         guard headerLength == 0 || (headerLength >= 12 && UInt64(headerLength) <= length) else {
-            throw LauncherFailure("A starter CASC object has an invalid BLTE header length.")
+            throw LauncherFailure(L("A starter CASC object has an invalid BLTE header length."))
         }
         // Chunked EKeys cover only the complete BLTE header; a single-frame
         // object with a zero header length hashes the entire encoded object.
@@ -358,13 +358,13 @@ enum CASCStorage {
         var remaining = (headerLength == 0 ? length : UInt64(headerLength)) - 8
         while remaining > 0 {
             guard let block = try handle.read(upToCount: Int(min(remaining, 4 * 1024 * 1024))), !block.isEmpty else {
-                throw LauncherFailure("A starter CASC object is incomplete.")
+                throw LauncherFailure(L("A starter CASC object is incomplete."))
             }
             hasher.update(data: block)
             remaining -= UInt64(block.count)
         }
         guard Array(hasher.finalize()) == key else {
-            throw LauncherFailure("The encoded key of a starter CASC object does not match its BLTE header.")
+            throw LauncherFailure(L("The encoded key of a starter CASC object does not match its BLTE header."))
         }
     }
 

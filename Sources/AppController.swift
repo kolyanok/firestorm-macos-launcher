@@ -49,21 +49,24 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var gameProcess: Process?
     private var timer: Timer?
     private var connection: NWConnection?
-    private let path = NSTextField(wrappingLabelWithString: "Choose an existing game folder containing Data and _midnight_.")
-    private let status = NSTextField(wrappingLabelWithString: "Install the game or choose an existing client to begin.")
-    private let network = NSTextField(labelWithString: "●  Checking login endpoint…")
-    private let badge = NSTextField(labelWithString: "NO GAME SELECTED")
-    private let detail = NSTextField(wrappingLabelWithString: "")
-    private let language = NSPopUpButton()
-    private let progress = NSProgressIndicator()
-    private let downloadBar = NSProgressIndicator()
-    private let pause = NSButton(title: "Pause", target: nil, action: nil)
+    private var path = NSTextField(wrappingLabelWithString: L("Choose an existing game folder containing Data and _midnight_."))
+    private var status = NSTextField(wrappingLabelWithString: L("Install the game or choose an existing client to begin."))
+    private var network = NSTextField(labelWithString: L("●  Checking login endpoint…"))
+    private var badge = NSTextField(labelWithString: L("NO GAME SELECTED"))
+    private var detail = NSTextField(wrappingLabelWithString: "")
+    private var language = NSPopUpButton()
+    private var interfaceLanguage = NSPopUpButton()
+    private let interfaceLanguageIDs = ["auto", "en", "ru"]
+    private var launcherVersion: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "" }
+    private var progress = NSProgressIndicator()
+    private var downloadBar = NSProgressIndicator()
+    private var pause = NSButton(title: L("Pause"), target: nil, action: nil)
     private var installCancellation: InstallCancellation?
     private var pendingInstallDestination: URL?
     private var launchNoticeVisible = false
-    private static let coldStartHint = "First launch after a starter install may take around 10 minutes, or longer on slow connections. WoW may bounce in the Dock with no window while more data downloads. Please wait."
-    private static let defaultHint = "The macOS client is included. Install downloads ~297 MB of starter data from Firestorm; more world assets stream while you play."
-    private let play = NSButton(title: "Play", target: nil, action: nil)
+    private static var coldStartHint: String { L("First launch after a starter install may take around 10 minutes, or longer on slow connections. WoW may bounce in the Dock with no window while more data downloads. Please wait.") }
+    private static var defaultHint: String { L("The macOS client is included. Install downloads ~297 MB of starter data from Firestorm; more world assets stream while you play.") }
+    private var play = NSButton(title: L("Play"), target: nil, action: nil)
     private var mutationButtons: [NSButton] = []
     private let localeIDs = ["ruRU", "enUS", "enGB", "deDE", "frFR", "esES"]
     private var messages = [String]()
@@ -119,7 +122,23 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func buildWindow() {
-        window = NSWindow(contentRect:NSRect(x:0,y:0,width:1010,height:720),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
+        if window == nil {
+            window = NSWindow(contentRect:NSRect(x:0,y:0,width:1050,height:740),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
+        }
+        mutationButtons.removeAll()
+        // Fresh controls let AppKit recreate intrinsic sizing and wrapping constraints.
+        // Installation, download and running-game state live on the controller.
+        path = NSTextField(wrappingLabelWithString: L("Choose an existing game folder containing Data and _midnight_."))
+        status = NSTextField(wrappingLabelWithString: L("Install the game or choose an existing client to begin."))
+        network = NSTextField(labelWithString: L("●  Checking login endpoint…"))
+        badge = NSTextField(labelWithString: L("NO GAME SELECTED"))
+        detail = NSTextField(wrappingLabelWithString: "")
+        language = NSPopUpButton()
+        interfaceLanguage = NSPopUpButton()
+        progress = NSProgressIndicator()
+        downloadBar = NSProgressIndicator()
+        pause = NSButton(title: L("Pause"), target: nil, action: nil)
+        play = NSButton(title: L("Play"), target: nil, action: nil)
         window.title = "Firestorm Launcher"
         window.appearance = NSAppearance(named:.darkAqua)
         window.delegate = self
@@ -128,62 +147,92 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let content = NSView(); window.contentView = content
         let sidebar = Surface(NSColor(calibratedRed:0.075,green:0.086,blue:0.11,alpha:1))
         sidebar.translatesAutoresizingMaskIntoConstraints = false; content.addSubview(sidebar)
-        NSLayoutConstraint.activate([sidebar.leadingAnchor.constraint(equalTo:content.leadingAnchor),sidebar.topAnchor.constraint(equalTo:content.topAnchor),sidebar.bottomAnchor.constraint(equalTo:content.bottomAnchor),sidebar.widthAnchor.constraint(equalToConstant:205)])
+        NSLayoutConstraint.activate([sidebar.leadingAnchor.constraint(equalTo:content.leadingAnchor),sidebar.topAnchor.constraint(equalTo:content.topAnchor),sidebar.bottomAnchor.constraint(equalTo:content.bottomAnchor),sidebar.widthAnchor.constraint(equalToConstant:225)])
         let flame = label("♨",size:40,weight:.bold,color:amber)
         let brand = label("FIRESTORM",size:18,weight:.heavy)
-        let edition = label("MACOS LAUNCHER  /  1.1.8",size:10,weight:.semibold,color:muted)
+        let edition = label(LF("MACOS LAUNCHER  /  %@", launcherVersion),size:10,weight:.semibold,color:muted)
         let gameTab = Surface(NSColor(calibratedRed:0.19,green:0.15,blue:0.13,alpha:1),radius:9)
         let tabText = column([label("WORLD OF WARCRAFT",size:9,weight:.bold,color:amber),label("Midnight",size:18,weight:.semibold),label("Silvermoon · EU",size:11,color:muted)],spacing:5)
         pin(tabText,in:gameTab,insets:14)
-        let links = column([button("Install game",#selector(installGame)),button("Install location…",#selector(chooseInstallLocation)),button("Firestorm website ↗",#selector(openSite)),button("About launcher",#selector(about))],spacing:10)
-        let side = column([flame,brand,edition,label("LIBRARY",size:10,weight:.bold,color:muted),gameTab,links],spacing:14)
+        let links = column([button(L("Install game"),#selector(installGame)),button(L("Install location…"),#selector(chooseInstallLocation)),button(L("Firestorm website ↗"),#selector(openSite)),button(L("About launcher"),#selector(about))],spacing:10)
+        interfaceLanguage.removeAllItems()
+        interfaceLanguage.addItems(withTitles: [L("Automatic"), "English", "Русский"])
+        let savedInterfaceLanguage = UserDefaults.standard.string(forKey: "LauncherLanguage") ?? "auto"
+        interfaceLanguage.selectItem(at: interfaceLanguageIDs.firstIndex(of: savedInterfaceLanguage) ?? 0)
+        interfaceLanguage.target = self
+        interfaceLanguage.action = #selector(interfaceLanguageChanged)
+        interfaceLanguage.setAccessibilityLabel(L("Interface language"))
+        let interfacePreferences = column([label(L("Interface language"), size:12, color:muted), interfaceLanguage], spacing:6)
+        let side = column([flame,brand,edition,label(L("LIBRARY"),size:10,weight:.bold,color:muted),gameTab,links,interfacePreferences],spacing:14)
         side.setCustomSpacing(30,after:edition); side.setCustomSpacing(28,after:gameTab)
         sidebar.addSubview(side); side.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([side.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),side.trailingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:-18),side.topAnchor.constraint(equalTo:sidebar.topAnchor,constant:30),gameTab.widthAnchor.constraint(equalTo:side.widthAnchor)])
-        let foot = label("Intel & Apple Silicon · macOS 14+\nCommunity launcher",size:10,color:muted)
+        let foot = label(L("Intel & Apple Silicon · macOS 14+\nCommunity launcher"),size:10,color:muted)
         sidebar.addSubview(foot); foot.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([foot.leadingAnchor.constraint(equalTo:sidebar.leadingAnchor,constant:20),foot.bottomAnchor.constraint(equalTo:sidebar.bottomAnchor,constant:-22)])
 
         let hero = HeroView(); hero.wantsLayer = true; hero.layer?.cornerRadius = 14; hero.layer?.masksToBounds = true
-        let heroText = column([label("WORLD OF WARCRAFT",size:11,weight:.bold,color:amber),label("MIDNIGHT",size:46,weight:.heavy),label("Your journey to Silvermoon",size:16,color:.secondaryLabelColor),label("12.0.7.68974  ·  Native macOS client",size:11,color:muted)],spacing:8)
+        let heroText = column([label("WORLD OF WARCRAFT",size:11,weight:.bold,color:amber),label("MIDNIGHT",size:46,weight:.heavy),label(L("Your journey to Silvermoon"),size:16,color:.secondaryLabelColor),label(L("12.0.7.68974  ·  Native macOS client"),size:11,color:muted)],spacing:8)
         hero.addSubview(heroText); heroText.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([hero.heightAnchor.constraint(equalToConstant:180),heroText.leadingAnchor.constraint(equalTo:hero.leadingAnchor,constant:26),heroText.centerYAnchor.constraint(equalTo:hero.centerYAnchor)])
         network.font = .systemFont(ofSize:11); network.textColor = muted
         badge.font = .systemFont(ofSize:10,weight:.bold); badge.textColor = amber
         let clientCard = Surface(NSColor(calibratedRed:0.09,green:0.106,blue:0.14,alpha:1),radius:12)
         path.font = .systemFont(ofSize:11); path.textColor = muted; path.isSelectable = true; path.maximumNumberOfLines = 2; path.lineBreakMode = .byTruncatingMiddle
-        let choose = button("Locate game…",#selector(choose))
-        let finder = button("Show folder",#selector(openFolder))
-        let check = button("Verify",#selector(verify))
-        let cardStack = column([row([label("Game client",size:15,weight:.semibold),badge],spacing:18),path,row([choose,check,finder])],spacing:12)
+        let choose = button(L("Locate game…"),#selector(choose))
+        let finder = button(L("Show folder"),#selector(openFolder))
+        let check = button(L("Verify"),#selector(verify))
+        let cardStack = column([row([label(L("Game client"),size:15,weight:.semibold),badge],spacing:18),path,row([choose,check,finder])],spacing:12)
         pin(cardStack,in:clientCard,insets:18)
-        language.addItems(withTitles:["Russian", "English (US)", "English (UK)", "German", "French", "Spanish"])
+        language.removeAllItems()
+        language.addItems(withTitles:[L("Russian"), L("English (US)"), L("English (UK)"), L("German"), L("French"), L("Spanish")])
         let savedLocale = UserDefaults.standard.string(forKey:"GameLocale") ?? "enUS"
         language.selectItem(at:localeIDs.firstIndex(of:savedLocale) ?? 0)
         language.target = self; language.action = #selector(localeChanged)
-        let actions = row([button("Repair client",#selector(repair)),button("Create separate copy…",#selector(clone)),button("Restore backup",#selector(restore))])
-        let prefs = row([label("Game language",size:12,color:muted),language,button("Logs",#selector(openLogs)),button("Reset cache",#selector(clearCache))],spacing:12)
+        let actions = row([button(L("Repair client"),#selector(repair)),button(L("Create separate copy…"),#selector(clone)),button(L("Restore backup"),#selector(restore))])
+        let prefs = row([label(L("Game language"),size:12,color:muted),language,button(L("Logs"),#selector(openLogs)),button(L("Reset cache"),#selector(clearCache))],spacing:12)
         status.font = .systemFont(ofSize:13,weight:.medium); status.isSelectable = true; status.maximumNumberOfLines = 3
         detail.font = .systemFont(ofSize:10); detail.textColor = muted; detail.maximumNumberOfLines = 2
         detail.stringValue = Self.defaultHint
         progress.style = .spinning; progress.controlSize = .small; progress.isDisplayedWhenStopped = false
         downloadBar.style = .bar; downloadBar.isIndeterminate = false; downloadBar.minValue = 0; downloadBar.maxValue = 1; downloadBar.isHidden = true
+        pause.title = L("Pause")
         pause.target = self; pause.action = #selector(pauseInstall); pause.bezelStyle = .rounded; pause.isHidden = true
         play.target = self; play.action = #selector(launch); play.bezelStyle = .rounded; play.controlSize = .large; play.bezelColor = amber; play.contentTintColor = .black; play.font = .systemFont(ofSize:18,weight:.bold); play.keyEquivalent = "\r"
         let bottom = row([progress,play,pause],spacing:12)
-        let main = column([row([label("GAMES  /  MIDNIGHT",size:11,weight:.bold,color:muted),network],spacing:34),hero,clientCard,actions,prefs,status,detail,downloadBar,bottom],spacing:12)
+        let main = column([row([label(L("GAMES  /  MIDNIGHT"),size:11,weight:.bold,color:muted),network],spacing:34),hero,clientCard,actions,prefs,status,detail,downloadBar,bottom],spacing:12)
         main.setCustomSpacing(8,after:status)
         content.addSubview(main); main.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([main.leadingAnchor.constraint(equalTo:sidebar.trailingAnchor,constant:28),main.trailingAnchor.constraint(equalTo:content.trailingAnchor,constant:-28),main.topAnchor.constraint(equalTo:content.topAnchor,constant:25),hero.widthAnchor.constraint(equalTo:main.widthAnchor),clientCard.widthAnchor.constraint(equalTo:main.widthAnchor),path.widthAnchor.constraint(equalTo:cardStack.widthAnchor),status.widthAnchor.constraint(equalTo:main.widthAnchor),detail.widthAnchor.constraint(equalTo:main.widthAnchor),downloadBar.widthAnchor.constraint(equalTo:main.widthAnchor),play.widthAnchor.constraint(equalToConstant:188),play.heightAnchor.constraint(equalToConstant:44)])
         updateButtons()
     }
 
+    @objc private func interfaceLanguageChanged() {
+        guard !busy else { return }
+        let index = interfaceLanguage.indexOfSelectedItem
+        guard interfaceLanguageIDs.indices.contains(index) else { return }
+        let badgeKey = InterfaceTranslations.russian.first { $0.value == badge.stringValue }?.key ?? badge.stringValue
+        let networkKey = InterfaceTranslations.russian.first { $0.value == network.stringValue }?.key ?? network.stringValue
+        let networkColor = network.textColor
+        UserDefaults.standard.set(interfaceLanguageIDs[index], forKey: "LauncherLanguage")
+        buildWindow()
+        badge.stringValue = L(badgeKey)
+        network.stringValue = L(networkKey)
+        network.textColor = networkColor
+        displayPath()
+        if pendingInstallDestination != nil {
+            detail.stringValue = L("Downloaded parts are saved. Keep the same game language and click Resume install or Install game to continue.")
+        }
+        Launcher.updateMenu()
+        log(L("Interface language changed."))
+    }
+
     private var locale:String { localeIDs[max(0,language.indexOfSelectedItem)] }
-    @objc private func localeChanged() { UserDefaults.standard.set(locale,forKey:"GameLocale"); log("Game language selected: \(language.titleOfSelectedItem ?? locale).") }
+    @objc private func localeChanged() { UserDefaults.standard.set(locale,forKey:"GameLocale"); log(LF("Game language selected: %@.", language.titleOfSelectedItem ?? locale)) }
     private var installDestination:URL { UserDefaults.standard.string(forKey:"InstallDestination").map { URL(fileURLWithPath:$0,isDirectory:true) } ?? CleanInstaller.defaultDestination }
     private func displayPath() {
-        if let pendingInstallDestination { path.stringValue = "Install location: \(pendingInstallDestination.path)" }
-        else { path.stringValue = selected?.root.path ?? "Install location: \(installDestination.path)" }
+        if let pendingInstallDestination { path.stringValue = LF("Install location: %@", pendingInstallDestination.path) }
+        else { path.stringValue = selected?.root.path ?? LF("Install location: %@", installDestination.path) }
         path.toolTip = path.stringValue
         if pendingInstallDestination == nil {
             detail.stringValue = selected.flatMap { coldStartNoticeIdentity(for:$0) } == nil ? Self.defaultHint : Self.coldStartHint
@@ -193,9 +242,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func updateButtons() {
         for b in mutationButtons { b.isEnabled = !busy }
         language.isEnabled = !busy
+        interfaceLanguage.isEnabled = !busy
         play.isEnabled = !busy
-        if pendingInstallDestination != nil { play.title = installCancellation == nil ? "Resume install" : "Installing…" }
-        else { play.title = selected == nil ? "Install" : (gameProcess?.isRunning == true || game?.isTerminated == false ? "Return to game" : "Play") }
+        if pendingInstallDestination != nil { play.title = installCancellation == nil ? L("Resume install") : L("Installing…") }
+        else { play.title = selected == nil ? L("Install") : (gameProcess?.isRunning == true || game?.isTerminated == false ? L("Return to game") : L("Play")) }
         pause.isHidden = installCancellation == nil
         pause.isEnabled = installCancellation != nil
         if busy { progress.startAnimation(nil) } else { progress.stopAnimation(nil) }
@@ -203,14 +253,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func saveSelection(_ game:GameInstallation) { pendingInstallDestination = nil; selected = game; UserDefaults.standard.set(game.root.path,forKey:"ClientRoot"); displayPath() }
     @objc private func chooseInstallLocation() {
         guard !busy else { return }
-        let panel = NSSavePanel(); panel.title = "Install Firestorm Midnight"; panel.nameFieldStringValue = "Firestorm Midnight"; panel.canCreateDirectories = true
+        let panel = NSSavePanel(); panel.title = L("Install Firestorm Midnight"); panel.nameFieldStringValue = "Firestorm Midnight"; panel.canCreateDirectories = true
         panel.directoryURL = installDestination.deletingLastPathComponent()
-        panel.message = "Choose a new folder. The macOS client is included and starter Data downloads directly from Firestorm."
+        panel.message = L("Choose a new folder. The macOS client is included and starter Data downloads directly from Firestorm.")
         panel.beginSheetModal(for:window) { response in
             guard response == .OK, let url = panel.url else { return }
             UserDefaults.standard.set(url.path,forKey:"InstallDestination")
             self.pendingInstallDestination = nil
-            self.displayPath(); self.updateButtons(); self.log("Install location: \(url.path). Click Install game to begin.")
+            self.displayPath(); self.updateButtons(); self.log(LF("Install location: %@. Click Install game to begin.", url.path))
         }
     }
     @objc private func installGame() {
@@ -218,15 +268,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let target = pendingInstallDestination ?? installDestination
         if FileManager.default.fileExists(atPath:target.path) {
             if let existing = try? GameInstallation.inspect(target) { saveSelection(existing); verify() }
-            else { log("The install location already exists. Choose a new folder with Install location…",error:true) }
+            else { log(L("The install location already exists. Choose a new folder with Install location…"),error:true) }
             return
         }
         pendingInstallDestination = target
         displayPath()
         let token = InstallCancellation(); installCancellation = token
         busy = true; downloadBar.isHidden = false; downloadBar.doubleValue = 0; updateButtons()
-        badge.stringValue = "INSTALLING"
-        log("Installing the bundled macOS client and downloading starter Data from Firestorm…")
+        badge.stringValue = L("INSTALLING")
+        log(L("Installing the bundled macOS client and downloading starter Data from Firestorm…"))
         let currentLocale = locale
         let installer = CleanInstaller(core:core)
         DispatchQueue.global(qos:.userInitiated).async {
@@ -236,21 +286,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     self.downloadBar.doubleValue = item.fraction
                     let size = ByteCountFormatter.string(fromByteCount:item.completedBytes,countStyle:.file)
                     let total = ByteCountFormatter.string(fromByteCount:item.totalBytes,countStyle:.file)
-                    let speed = item.bytesPerSecond > 0 ? " · " + ByteCountFormatter.string(fromByteCount:Int64(item.bytesPerSecond),countStyle:.file) + "/s" : ""
-                    self.detail.stringValue = "\(size) / \(total)\(speed) · Downloads resume if interrupted."
+                    let speed = item.bytesPerSecond > 0 ? " · " + ByteCountFormatter.string(fromByteCount:Int64(item.bytesPerSecond),countStyle:.file) + L("/s") : ""
+                    self.detail.stringValue = LF("%@ / %@%@ · Downloads resume if interrupted.", size, total, speed)
                 }
             } }
             DispatchQueue.main.async {
                 self.busy = false; self.installCancellation = nil; self.downloadBar.isHidden = true
                 switch result {
-                case .success(let installed):self.saveSelection(installed); self.badge.stringValue = "READY TO PLAY"; self.log("Installed. Click Play to start Firestorm."); self.detail.stringValue = Self.coldStartHint
-                case .failure(let error):self.badge.stringValue = "INSTALL PAUSED"; self.log(error.localizedDescription,error:!token.isCancelled); self.detail.stringValue = "Downloaded parts are saved. Keep the same game language and click Resume install or Install game to continue."
+                case .success(let installed):self.saveSelection(installed); self.badge.stringValue = L("READY TO PLAY"); self.log(L("Installed. Click Play to start Firestorm.")); self.detail.stringValue = Self.coldStartHint
+                case .failure(let error):self.badge.stringValue = L("INSTALL PAUSED"); self.log(error.localizedDescription,error:!token.isCancelled); self.detail.stringValue = L("Downloaded parts are saved. Keep the same game language and click Resume install or Install game to continue.")
                 }
                 self.updateButtons()
             }
         }
     }
-    @objc private func pauseInstall() { installCancellation?.cancel(); pause.isEnabled = false; log("Pausing… Downloaded parts will be kept.") }
+    @objc private func pauseInstall() { installCancellation?.cancel(); pause.isEnabled = false; log(L("Pausing… Downloaded parts will be kept.")) }
     private func work(_ operation:@escaping (@escaping (String)->Void)throws->String,then:(()->Void)? = nil) {
         guard !busy else { return }
         busy = true; updateButtons()
@@ -265,7 +315,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func choose() {
-        let panel = NSOpenPanel(); panel.title = "Choose a Midnight client folder with Data and _midnight_"; panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.treatsFilePackagesAsDirectories = false
+        let panel = NSOpenPanel(); panel.title = L("Choose a Midnight client folder with Data and _midnight_"); panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.treatsFilePackagesAsDirectories = false
         panel.beginSheetModal(for:window) { response in
             guard response == .OK,let url = panel.url else { return }
             do { self.saveSelection(try GameInstallation.inspect(url)); self.verify() } catch { self.log(error.localizedDescription,error:true) }
@@ -273,32 +323,32 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc private func verify() {
         guard let selected else { updateButtons(); return }
-        log("Verifying game client and launcher files…")
+        log(L("Verifying game client and launcher files…"))
         var patched = false
         work({ _ in let result = try self.core.check(selected); patched = result.patched; return result.message },then:{
-            self.badge.stringValue = patched ? "READY TO PLAY" : "SETUP REQUIRED"
+            self.badge.stringValue = patched ? L("READY TO PLAY") : L("SETUP REQUIRED")
         })
     }
     @objc private func repair() {
         guard let selected else { choose(); return }
         let currentLocale = locale
-        work({ progress in try self.core.prepare(selected,locale:currentLocale,progress:progress); return "Client repaired. The Firestorm profile is ready." },then:{self.badge.stringValue = "READY TO PLAY"})
+        work({ progress in try self.core.prepare(selected,locale:currentLocale,progress:progress); return L("Client repaired. The Firestorm profile is ready.") },then:{self.badge.stringValue = L("READY TO PLAY")})
     }
     @objc private func clone() {
         guard let source = selected else { choose(); return }
-        let panel = NSSavePanel(); panel.title = "Create a separate Firestorm installation"; panel.nameFieldStringValue = "Firestorm Midnight"; panel.canCreateDirectories = true
-        panel.message = "Choose a new folder on APFS. Game archives are cloned without downloading them again. Account data and cache are not copied."
+        let panel = NSSavePanel(); panel.title = L("Create a separate Firestorm installation"); panel.nameFieldStringValue = "Firestorm Midnight"; panel.canCreateDirectories = true
+        panel.message = L("Choose a new folder on APFS. Game archives are cloned without downloading them again. Account data and cache are not copied.")
         panel.beginSheetModal(for:window) { response in
             guard response == .OK,let destination = panel.url else { return }
             let currentLocale = self.locale
             var created:GameInstallation?
-            self.work({ progress in created = try self.core.cloneInstall(from:source,to:destination,locale:currentLocale,progress:progress); return "Separate client installed and selected for launch." },then:{if let created { self.saveSelection(created); self.badge.stringValue = "READY TO PLAY" }})
+            self.work({ progress in created = try self.core.cloneInstall(from:source,to:destination,locale:currentLocale,progress:progress); return L("Separate client installed and selected for launch.") },then:{if let created { self.saveSelection(created); self.badge.stringValue = L("READY TO PLAY") }})
         }
     }
     @objc private func restore() {
         guard let selected else { return }
-        let alert = NSAlert(); alert.messageText = "Restore the previous client?"; alert.informativeText = "This restores the game application and Firestorm settings from the latest backup. Game archives stay in place."; alert.addButton(withTitle:"Restore"); alert.addButton(withTitle:"Cancel")
-        alert.beginSheetModal(for:window) { response in guard response == .alertFirstButtonReturn else { return }; self.work({ progress in try self.core.restoreLatest(selected,progress:progress); return "Previous client and settings restored." },then:{self.badge.stringValue = "VERIFY CLIENT"}) }
+        let alert = NSAlert(); alert.messageText = L("Restore the previous client?"); alert.informativeText = L("This restores the game application and Firestorm settings from the latest backup. Game archives stay in place."); alert.addButton(withTitle:L("Restore")); alert.addButton(withTitle:L("Cancel"))
+        alert.beginSheetModal(for:window) { response in guard response == .alertFirstButtonReturn else { return }; self.work({ progress in try self.core.restoreLatest(selected,progress:progress); return L("Previous client and settings restored.") },then:{self.badge.stringValue = L("VERIFY CLIENT")}) }
     }
     @objc private func launch() {
         guard !busy, !launchNoticeVisible else { return }
@@ -315,10 +365,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
            !(UserDefaults.standard.stringArray(forKey:"AcknowledgedColdStartNotices") ?? []).contains(identity) {
             let alert = NSAlert()
             alert.alertStyle = .informational
-            alert.messageText = "The first launch can take a while"
-            alert.informativeText = "When only the starter data from Firestorm is installed, World of Warcraft may need around 10 minutes to download and prepare more data before its window appears. Slower connections may take longer.\n\nThe WoW icon may keep bouncing in the Dock without showing a window during this time. Please keep the game open and wait."
-            alert.addButton(withTitle:"Launch game")
-            alert.addButton(withTitle:"Cancel")
+            alert.messageText = L("The first launch can take a while")
+            alert.informativeText = L("When only the starter data from Firestorm is installed, World of Warcraft may need around 10 minutes to download and prepare more data before its window appears. Slower connections may take longer.\n\nThe WoW icon may keep bouncing in the Dock without showing a window during this time. Please keep the game open and wait.")
+            alert.addButton(withTitle:L("Launch game"))
+            alert.addButton(withTitle:L("Cancel"))
             launchNoticeVisible = true
             alert.beginSheetModal(for:window) { [weak self] response in
                 guard let self else { return }
@@ -344,21 +394,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     private func prepareAndLaunch(_ selected:GameInstallation) {
         let currentLocale = locale
-        work({ progress in try self.core.prepare(selected,locale:currentLocale,progress:progress); return "Launching game…" },then:{self.openGame(selected)})
+        work({ progress in try self.core.prepare(selected,locale:currentLocale,progress:progress); return L("Launching game…") },then:{self.openGame(selected)})
     }
     private func openGame(_ selected:GameInstallation) {
         let starterInstall = coldStartNoticeIdentity(for:selected) != nil
         busy = true; updateButtons()
         if starterInstall {
             detail.stringValue = Self.coldStartHint
-            log("Starting WoW. The first launch may take around 10 minutes before a window appears…")
-        } else { log("Starting WoW…") }
+            log(L("Starting WoW. The first launch may take around 10 minutes before a window appears…"))
+        } else { log(L("Starting WoW…")) }
         do {
             let process = try core.launch(selected)
             gameProcess = process
             game = NSRunningApplication(processIdentifier: process.processIdentifier)
-            log(starterInstall ? "Game process started. If no window is visible yet, please wait while startup finishes." : "Game process started. Sign in from the World of Warcraft window.")
-            badge.stringValue = "GAME RUNNING"
+            log(starterInstall ? L("Game process started. If no window is visible yet, please wait while startup finishes.") : L("Game process started. Sign in from the World of Warcraft window."))
+            badge.stringValue = L("GAME RUNNING")
         } catch {
             gameProcess = nil
             game = nil
@@ -376,13 +426,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             game = nil
             if !busy {
                 let status = process.terminationStatus
-                log(status == 0 ? "The game has exited." : "The game exited with code \(status). Open Logs to inspect GameLaunch.log.", error: status != 0)
-                badge.stringValue = "READY TO PLAY"
+                log(status == 0 ? L("The game has exited.") : LF("The game exited with code %d. Open Logs to inspect GameLaunch.log.", status), error: status != 0)
+                badge.stringValue = L("READY TO PLAY")
                 updateButtons()
             }
             return
         }
-        if let game,game.isTerminated { self.game = nil; if !busy { log("The game has exited."); badge.stringValue = "READY TO PLAY"; updateButtons() } }
+        if let game,game.isTerminated { self.game = nil; if !busy { log(L("The game has exited.")); badge.stringValue = L("READY TO PLAY"); updateButtons() } }
     }
     @objc private func openFolder() {
         if let target = pendingInstallDestination { NSWorkspace.shared.open(CleanInstaller.stagingDirectory(for:target)) }
@@ -394,7 +444,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let log = downloads.appendingPathComponent("download.log")
             if FileManager.default.fileExists(atPath:log.path) { NSWorkspace.shared.activateFileViewerSelecting([log]) }
             else if FileManager.default.fileExists(atPath:downloads.path) { NSWorkspace.shared.open(downloads) }
-            else { self.log("No download log has been created yet.") }
+            else { self.log(L("No download log has been created yet.")) }
             return
         }
         guard let selected else { return }
@@ -402,22 +452,22 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSWorkspace.shared.open(selected.logs)
     }
     @objc private func clearCache() {
-        guard let selected,!LauncherCore.gameIsRunning() else { log("Close World of Warcraft first.",error:true); return }
+        guard let selected,!LauncherCore.gameIsRunning() else { log(L("Close World of Warcraft first."),error:true); return }
         let cache = selected.product.appendingPathComponent("Cache")
-        guard FileManager.default.fileExists(atPath:cache.path) else { log("The cache is already empty."); return }
+        guard FileManager.default.fileExists(atPath:cache.path) else { log(L("The cache is already empty.")); return }
         do {
             let real = cache.resolvingSymlinksInPath().standardizedFileURL
-            guard real.path.hasPrefix(selected.product.path + "/") else { throw NSError(domain:"Launcher",code:1,userInfo:[NSLocalizedDescriptionKey:"The cache is outside the selected game folder."]) }
+            guard real.path.hasPrefix(selected.product.path + "/") else { throw NSError(domain:"Launcher",code:1,userInfo:[NSLocalizedDescriptionKey:L("The cache is outside the selected game folder.")]) }
             let backup = selected.product.appendingPathComponent("Cache.saved-\(UUID().uuidString)")
             try FileManager.default.moveItem(at:cache,to:backup)
-            log("Cache reset. The previous cache folder is saved beside the game.")
+            log(L("Cache reset. The previous cache folder is saved beside the game."))
         } catch { log(error.localizedDescription,error:true) }
     }
     @objc private func openSite() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/welcome")!) }
     @objc private func openDownloads() { NSWorkspace.shared.open(URL(string:"https://firestorm-servers.com/en/play")!) }
     @objc private func about() {
-        let a = NSAlert(); a.messageText = "Firestorm Launcher 1.1.8"
-        a.informativeText = "Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game."
+        let a = NSAlert(); a.messageText = "Firestorm Launcher \(launcherVersion)"
+        a.informativeText = L("Community launcher for Midnight 12.0.7.68974.\nIntel & Apple Silicon · macOS 14 or later.\n\nIncludes the supplied macOS client, backups, recovery, and the Silvermoon connection profile. Use a separate game copy for Firestorm.\n\nInstall game data from Firestorm or choose an existing installation. New game builds and a full scan of all game archives are not supported. Enter your password only in the game.")
         a.beginSheetModal(for:window)
     }
     private func checkNetwork() {
@@ -427,15 +477,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             DispatchQueue.main.async {
                 guard !complete else { return }
                 switch state {
-                case .ready: complete = true; self.network.stringValue = "●  Login endpoint reachable"; self.network.textColor = .systemGreen; c.cancel()
-                case .failed: complete = true; self.network.stringValue = "●  Login endpoint unavailable"; self.network.textColor = muted; c.cancel()
+                case .ready: complete = true; self.network.stringValue = L("●  Login endpoint reachable"); self.network.textColor = .systemGreen; c.cancel()
+                case .failed: complete = true; self.network.stringValue = L("●  Login endpoint unavailable"); self.network.textColor = muted; c.cancel()
                 default:break
                 }
             }
         }
         c.start(queue:DispatchQueue.global(qos:.utility))
         DispatchQueue.main.asyncAfter(deadline:.now()+6) {
-            guard !complete else { return }; complete = true; c.cancel(); self.network.stringValue = "●  Login endpoint did not respond"; self.network.textColor = muted
+            guard !complete else { return }; complete = true; c.cancel(); self.network.stringValue = L("●  Login endpoint did not respond"); self.network.textColor = muted
         }
     }
 }

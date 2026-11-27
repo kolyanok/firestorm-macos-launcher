@@ -23,6 +23,28 @@ private func expectThrows(_ message: String, _ block: () throws -> Void) throws 
     throw TestFailure.assertion("Expected rejection: " + message)
 }
 
+private func checkLocalization() throws {
+    try expect(LauncherLocalization.resolvedLanguage(preference: "ru", preferredLanguages: ["en-US"]) == "ru", "Explicit Russian overrides the system language")
+    try expect(LauncherLocalization.resolvedLanguage(preference: "en", preferredLanguages: ["ru-RU"]) == "en", "Explicit English overrides the system language")
+    try expect(LauncherLocalization.resolvedLanguage(preference: "auto", preferredLanguages: ["ru-RU"]) == "ru", "Automatic Russian language selection")
+    try expect(LauncherLocalization.resolvedLanguage(preference: nil, preferredLanguages: ["fr-FR"]) == "en", "Unsupported system languages fall back to English")
+    try expect(LauncherLocalization.resolvedLanguage(preference: "invalid", preferredLanguages: []) == "en", "Unknown saved preferences have a safe fallback")
+    try expect(LauncherLocalization.text("Play", language: "en") == "Play", "English text is preserved")
+    try expect(LauncherLocalization.text("Play", language: "ru") == "Играть", "Russian button translation")
+    try expect(LauncherLocalization.text("Unknown key", language: "ru") == "Unknown key", "Missing translation has an English fallback")
+    let placeholders = try NSRegularExpression(pattern: "%[0-9$.*+\\-]*[a-zA-Z@]")
+    func formats(_ text: String) -> [String] {
+        placeholders.matches(in: text, range: NSRange(text.startIndex..., in: text)).map {
+            String(text[Range($0.range, in: text)!])
+        }.sorted()
+    }
+    for (english, russian) in LauncherLocalization.russian {
+        try expect(!russian.isEmpty && formats(english) == formats(russian), "Translation preserves format arguments for \(english)")
+    }
+    let format = LauncherLocalization.text("Install location: %@", language: "ru")
+    try expect(String(format: format, "/tmp/Игра") == "Папка установки — /tmp/Игра", "Localized messages preserve Unicode paths")
+}
+
 private func run(_ executable: String, _ args: [String]) throws {
     let output = fm.temporaryDirectory.appendingPathComponent("firestorm-tests-output-" + UUID().uuidString)
     fm.createFile(atPath: output.path, contents: nil)
@@ -130,6 +152,7 @@ struct CoreTests {
         let temporary = URL(fileURLWithPath: canonicalBase, isDirectory: true)
             .appendingPathComponent("firestorm-launcher-tests-" + UUID().uuidString)
         do {
+            try checkLocalization()
             try fm.createDirectory(at: temporary, withIntermediateDirectories: true)
             defer { try? fm.removeItem(at: temporary) }
             let fixture = try Fixture(temporary.appendingPathComponent("Primary"))

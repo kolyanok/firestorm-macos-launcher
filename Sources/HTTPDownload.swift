@@ -61,28 +61,28 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     }
 
     func perform() throws {
-        guard expected > 0 else { throw problem("the pinned file size is invalid") }
+        guard expected > 0 else { throw problem(L("the pinned file size is invalid")) }
         try cancellation.check()
         try LauncherCore.ensureMutablePath(partial, root: destination.deletingLastPathComponent())
         let descriptor = Darwin.open(partial.path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard descriptor >= 0 else { throw problem("cannot open the partial download") }
+        guard descriptor >= 0 else { throw problem(L("cannot open the partial download")) }
         var attributes = stat()
         guard Darwin.fstat(descriptor, &attributes) == 0,
               (attributes.st_mode & mode_t(S_IFMT)) == mode_t(S_IFREG),
               attributes.st_uid == getuid(), attributes.st_nlink == 1,
               attributes.st_size >= 0 else {
             Darwin.close(descriptor)
-            throw problem("the partial download is not a private regular file")
+            throw problem(L("the partial download is not a private regular file"))
         }
         handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         defer { try? self.handle?.close(); self.handle = nil }
         if attributes.st_size > expected {
             try handle?.truncate(atOffset: 0)
-            record("Discarded oversized partial file: \(attributes.st_size) bytes; expected \(expected).")
+            record(LF("Discarded oversized partial file: %@ bytes; expected %@.", String(attributes.st_size), String(expected)))
         }
-        guard let output = self.handle else { throw problem("cannot open the partial download") }
+        guard let output = self.handle else { throw problem(L("cannot open the partial download")) }
         let end = try output.seekToEnd()
-        guard end <= UInt64(expected) else { throw problem("the partial download exceeds the pinned size") }
+        guard end <= UInt64(expected) else { throw problem(L("the partial download exceeds the pinned size")) }
         received = Int64(end)
         report(received)
 
@@ -104,7 +104,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         try output.close()
         self.handle = nil
         try FileManager.default.moveItem(at: partial, to: destination)
-        record("Complete: \(received)/\(expected) bytes. Awaiting content verification.")
+        record(LF("Complete: %@/%@ bytes. Awaiting content verification.", String(received), String(expected)))
         report(received)
     }
 
@@ -119,7 +119,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         var request = URLRequest(url: url)
         request.setValue("identity", forHTTPHeaderField: "Accept-Encoding")
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-        request.setValue("FirestormMacLauncher/1.1.8", forHTTPHeaderField: "User-Agent")
+        request.setValue("FirestormMacLauncher/1.1.9", forHTTPHeaderField: "User-Agent")
         request.setValue("bytes=\(start)-\(end)", forHTTPHeaderField: "Range")
         let task = session.dataTask(with: request)
         context = RequestContext(identifier: task.taskIdentifier, start: start, end: end)
@@ -133,21 +133,21 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         }
         try cancellation.check()
         if let failure { throw failure }
-        guard responseAccepted else { throw problem("the CDN did not return a usable HTTP response") }
+        guard responseAccepted else { throw problem(L("the CDN did not return a usable HTTP response")) }
         if let responseEndExclusive {
             guard received == responseEndExclusive else {
-                throw problem("HTTP 206 ended at byte \(received); its range promised bytes through \(responseEndExclusive - 1). The partial file is saved")
+                throw problem(LF("HTTP 206 ended at byte %@; its range promised bytes through %@. The partial file is saved", String(received), String(responseEndExclusive - 1)))
             }
         } else {
             // A 200 response ignored Range. It was restarted at zero and must
             // contain the complete pinned object; otherwise another 200 would
             // repeatedly reset progress instead of actually resuming.
             guard received == expected else {
-                throw problem("HTTP 200 ended after \(received) bytes; expected \(expected). The CDN did not provide a complete object")
+                throw problem(LF("HTTP 200 ended after %@ bytes; expected %@. The CDN did not provide a complete object", String(received), String(expected)))
             }
         }
-        guard received > start else { throw problem("the CDN response made no download progress") }
-        record("Response complete: HTTP \(responseStatus ?? 0), received=\(received)/\(expected).")
+        guard received > start else { throw problem(L("the CDN response made no download progress")) }
+        record(LF("Response complete: HTTP %@, received=%@/%@.", String(responseStatus ?? 0), String(received), String(expected)))
         report(received)
     }
 
@@ -158,7 +158,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             return
         }
         guard let response = response as? HTTPURLResponse else {
-            failure = problem("the CDN returned a non-HTTP response")
+            failure = problem(L("the CDN returned a non-HTTP response"))
             completionHandler(.cancel)
             return
         }
@@ -166,19 +166,19 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
         let rawRange = response.value(forHTTPHeaderField: "Content-Range") ?? "none"
         let rawLength = response.value(forHTTPHeaderField: "Content-Length") ?? "unknown"
         let encoding = response.value(forHTTPHeaderField: "Content-Encoding") ?? "identity"
-        record("HTTP \(response.statusCode), request=\(context.start)-\(context.end), Content-Range=\(rawRange), Content-Length=\(rawLength), Content-Encoding=\(encoding), expected=\(expected).")
+        record(LF("HTTP %@, request=%@-%@, Content-Range=%@, Content-Length=%@, Content-Encoding=%@, expected=%@.", String(response.statusCode), String(context.start), String(context.end), rawRange, rawLength, encoding, String(expected)))
 
         do {
             switch response.statusCode {
             case 206:
                 guard let range = ByteRange.parse(rawRange), range.start == context.start, range.total == expected else {
-                    throw problem("HTTP 206 returned Content-Range '\(rawRange)' for requested offset \(context.start) and pinned total \(expected)")
+                    throw problem(LF("HTTP 206 returned Content-Range '%@' for requested offset %@ and pinned total %@", rawRange, String(context.start), String(expected)))
                 }
                 // Offsets apply to the exact encoded object, not a separately
                 // HTTP-compressed representation. A compressed ranged response
                 // cannot safely be appended to the existing on-disk bytes.
                 guard encoding.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "identity" else {
-                    throw problem("HTTP 206 used Content-Encoding '\(encoding)' despite the identity request. The partial file is saved")
+                    throw problem(LF("HTTP 206 used Content-Encoding '%@' despite the identity request. The partial file is saved", encoding))
                 }
                 responseEndExclusive = range.end + 1
             case 200:
@@ -188,7 +188,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
                     try handle?.truncate(atOffset: 0)
                     try handle?.seek(toOffset: 0)
                     received = 0
-                    record("HTTP 200 ignored Range; restarted this object from byte zero.")
+                    record(L("HTTP 200 ignored Range; restarted this object from byte zero."))
                 }
                 responseEndExclusive = nil
             case 416:
@@ -197,9 +197,9 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
                 try handle?.truncate(atOffset: 0)
                 try handle?.seek(toOffset: 0)
                 received = 0
-                throw problem("HTTP 416 rejected the saved offset \(context.start); the next attempt will restart this object")
+                throw problem(LF("HTTP 416 rejected the saved offset %@; the next attempt will restart this object", String(context.start)))
             default:
-                throw problem("the CDN returned HTTP \(response.statusCode), Content-Range '\(rawRange)', Content-Length \(rawLength). The partial file is saved")
+                throw problem(LF("the CDN returned HTTP %@, Content-Range '%@', Content-Length %@. The partial file is saved", String(response.statusCode), rawRange, rawLength))
             }
             // Content-Length describes this HTTP response and may be adjusted
             // by transport decoding. It is diagnostic, not the whole-object
@@ -208,7 +208,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             completionHandler(.allow)
         } catch {
             failure = error
-            record("Rejected response: \(error.localizedDescription)")
+            record(LF("Rejected response: %@", error.localizedDescription))
             completionHandler(.cancel)
         }
     }
@@ -216,10 +216,10 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         guard context?.identifier == dataTask.taskIdentifier else { dataTask.cancel(); return }
         do {
-            guard responseAccepted, let handle else { throw problem("received data before a valid HTTP response") }
+            guard responseAccepted, let handle else { throw problem(L("received data before a valid HTTP response")) }
             let maximum = min(expected, responseEndExclusive ?? expected)
             guard received <= maximum, Int64(data.count) <= maximum - received else {
-                throw problem("HTTP \(responseStatus ?? 0) sent bytes beyond its validated range: current \(received), chunk \(data.count), limit \(maximum)")
+                throw problem(LF("HTTP %@ sent bytes beyond its validated range: current %@, chunk %@, limit %@", String(responseStatus ?? 0), String(received), String(data.count), String(maximum)))
             }
             try handle.write(contentsOf: data)
             received += Int64(data.count)
@@ -229,7 +229,7 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
             }
         } catch {
             if failure == nil { failure = error }
-            record("Transfer interrupted: \(error.localizedDescription); received=\(received)/\(expected).")
+            record(LF("Transfer interrupted: %@; received=%@/%@.", error.localizedDescription, String(received), String(expected)))
             dataTask.cancel()
         }
     }
@@ -237,15 +237,15 @@ final class StreamDownload: NSObject, URLSessionDataDelegate, @unchecked Sendabl
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard context?.identifier == task.taskIdentifier else { return }
         if failure == nil, let error {
-            failure = problem("HTTP \(responseStatus ?? 0) stopped at \(received)/\(expected) bytes: \(error.localizedDescription)")
+            failure = problem(LF("HTTP %@ stopped at %@/%@ bytes: %@", String(responseStatus ?? 0), String(received), String(expected), error.localizedDescription))
         }
-        if let failure { record("Request failed: \(failure.localizedDescription)") }
+        if let failure { record(LF("Request failed: %@", failure.localizedDescription)) }
         // This is the last action: perform() may start the next request after it.
         completion.signal()
     }
 
     private func problem(_ message: String) -> LauncherFailure {
-        LauncherFailure("Downloading \(objectName) [\(destination.lastPathComponent)]: \(message).")
+        LauncherFailure(LF("Downloading %@ [%@]: %@.", objectName, destination.lastPathComponent, message))
     }
 
     private func record(_ event: String) {

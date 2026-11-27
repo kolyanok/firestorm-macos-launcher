@@ -22,12 +22,12 @@ struct GameInstallation {
     var logs: URL { product.appendingPathComponent("Logs", isDirectory: true) }
 
     static func inspect(_ selection: URL) throws -> Self {
-        guard selection.isFileURL else { throw LauncherFailure("Choose a local game folder.") }
+        guard selection.isFileURL else { throw LauncherFailure(L("Choose a local game folder.")) }
         let selected = selection.standardizedFileURL
         let root: URL
         if selected.lastPathComponent == gameAppName {
             guard selected.deletingLastPathComponent().lastPathComponent == "_midnight_" else {
-                throw LauncherFailure("The app must be inside _midnight_, next to the Data folder.")
+                throw LauncherFailure(L("The app must be inside _midnight_, next to the Data folder."))
             }
             root = selected.deletingLastPathComponent().deletingLastPathComponent().resolvingSymlinksInPath()
         } else if selected.lastPathComponent == "_midnight_" {
@@ -43,28 +43,28 @@ struct GameInstallation {
         guard let info = try? PropertyListSerialization.propertyList(from: boundedRead(infoURL), format: nil) as? [String: Any],
               let version = info["CFBundleVersion"] as? String,
               info["CFBundleExecutable"] as? String == gameExecutableName else {
-            throw LauncherFailure("No macOS World of Warcraft client was found in _midnight_.")
+            throw LauncherFailure(L("No macOS World of Warcraft client was found in _midnight_."))
         }
         guard version == supportedVersion else {
-            throw LauncherFailure("Found client \(version). Version \(supportedVersion) is required.")
+            throw LauncherFailure(LF("Found client %@. Version %@ is required.", version, supportedVersion))
         }
         let executable = app.appendingPathComponent("Contents/MacOS/\(gameExecutableName)")
         try LauncherCore.ensureMutablePath(executable, root: root)
         guard fm.isExecutableFile(atPath: executable.path), regularFile(executable) else {
-            throw LauncherFailure("The game executable is missing or cannot be launched.")
+            throw LauncherFailure(L("The game executable is missing or cannot be launched."))
         }
         let build = root.appendingPathComponent(".fsbuild")
         guard let data = try? boundedRead(build), let text = String(data: data, encoding: .utf8) else {
-            throw LauncherFailure("The .fsbuild file is missing. Choose the Firestorm root folder containing Data and _midnight_.")
+            throw LauncherFailure(L("The .fsbuild file is missing. Choose the Firestorm root folder containing Data and _midnight_."))
         }
         let lines = text.split(whereSeparator: \.isNewline)
-        guard let header = lines.first else { throw LauncherFailure("The .fsbuild file is empty.") }
+        guard let header = lines.first else { throw LauncherFailure(L("The .fsbuild file is empty.")) }
         let names = header.components(separatedBy: "|").map { $0.components(separatedBy: "!")[0] }
         guard Set(names).count == names.count,
               let active = names.firstIndex(of: "Active"), let prod = names.firstIndex(of: "Product"),
               let ver = names.firstIndex(of: "Version"), let bkey = names.firstIndex(of: "Build Key"),
               let ckey = names.firstIndex(of: "CDN Key") else {
-            throw LauncherFailure("The .fsbuild format is not recognized.")
+            throw LauncherFailure(L("The .fsbuild format is not recognized."))
         }
         let valid = lines.dropFirst().contains { row in
             let values = row.components(separatedBy: "|")
@@ -75,9 +75,9 @@ struct GameInstallation {
                 return regularFile(root.appendingPathComponent("Data/config/\(key.prefix(2))/\(key.dropFirst(2).prefix(2))/\(key)"))
             }
         }
-        guard valid else { throw LauncherFailure("The active \(version) build configuration or its Data/config files are missing.") }
+        guard valid else { throw LauncherFailure(LF("The active %@ build configuration or its Data/config files are missing.", version)) }
         guard regularFile(root.appendingPathComponent("Data/data/data.000")) else {
-            throw LauncherFailure("Game data Data/data/data.000 is missing. Choose a complete client.")
+            throw LauncherFailure(L("Game data Data/data/data.000 is missing. Choose a complete client."))
         }
         return Self(root: root, product: product, app: app, version: version)
     }
@@ -91,7 +91,7 @@ struct GameInstallation {
         let file = try FileHandle(forReadingFrom: url)
         defer { try? file.close() }
         let data = try file.read(upToCount: 1_048_577) ?? Data()
-        guard data.count <= 1_048_576 else { throw LauncherFailure("The metadata file is too large.") }
+        guard data.count <= 1_048_576 else { throw LauncherFailure(L("The metadata file is too large.")) }
         return data
     }
 }
@@ -154,17 +154,17 @@ final class LauncherCore {
         _ = try GameInstallation.inspect(game.root)
         let manifest = try readManifest()
         if CASCStorage.needsIndexUpgrade(in: game.root.appendingPathComponent("Data/data",isDirectory:true)) {
-            return ClientStatus(patched:false,message:"The starter Data indices need repair. Close the game and click Repair client; downloaded archives will be preserved.")
+            return ClientStatus(patched:false,message:L("The starter Data indices need repair. Close the game and click Repair client; downloaded archives will be preserved."))
         }
         do {
             try verifyFiles(game.app, manifest: manifest)
             _ = try Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", game.app.path])
             guard configurationReady(game.product.appendingPathComponent("WTF/Firestorm.wtf")) else {
-                return ClientStatus(patched: false, message: "The patch is installed. The Firestorm connection profile needs preparation.")
+                return ClientStatus(patched: false, message: L("The patch is installed. The Firestorm connection profile needs preparation."))
             }
-            return ClientStatus(patched: true, message: "Client \(game.version) verified. The patch is installed.")
+            return ClientStatus(patched: true, message: LF("Client %@ verified. The patch is installed.", game.version))
         } catch {
-            return ClientStatus(patched: false, message: "Client \(game.version) found. Firestorm files need preparation.")
+            return ClientStatus(patched: false, message: LF("Client %@ found. Firestorm files need preparation.", game.version))
         }
     }
 
@@ -176,7 +176,7 @@ final class LauncherCore {
         try fm.createDirectory(at: game.logs, withIntermediateDirectories: true)
         if !fm.fileExists(atPath: outputURL.path) {
             guard fm.createFile(atPath: outputURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
-                throw LauncherFailure("Could not create the game launch log.")
+                throw LauncherFailure(L("Could not create the game launch log."))
             }
         }
         let output = try FileHandle(forWritingTo: outputURL)
@@ -212,7 +212,7 @@ final class LauncherCore {
         try validateMutableLayout(game)
         let storage = game.root.appendingPathComponent("Data/data",isDirectory:true)
         if CASCStorage.needsIndexUpgrade(in:storage) {
-            progress("Repairing local Data indices. Downloaded game archives will be preserved…")
+            progress(L("Repairing local Data indices. Downloaded game archives will be preserved…"))
             try CASCStorage.rebuildIndices(in:storage)
         }
         let config = game.product.appendingPathComponent("WTF/Firestorm.wtf")
@@ -222,23 +222,23 @@ final class LauncherCore {
         if (try? verifyFiles(game.app, manifest: manifest)) != nil,
            (try? Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", game.app.path])) != nil {
             if previous == next {
-                progress("Files and settings are already ready.")
+                progress(L("Files and settings are already ready."))
             } else {
                 // WoW can rewrite its profile when it exits. Keep the verified app in place.
                 try requireStopped()
                 try fm.createDirectory(at: config.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try next.write(to: config, options: .atomic)
-                progress("Game settings updated.")
+                progress(L("Game settings updated."))
             }
             return
         }
-        progress("Verifying the bundled client…")
+        progress(L("Verifying the bundled client…"))
         let stage = game.root.appendingPathComponent(".firestorm-stage-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: stage, withIntermediateDirectories: false)
         defer { try? fm.removeItem(at: stage) }
         let prepared = try extractPayload(to: stage)
         try requireStopped()
-        progress("Saving a backup…")
+        progress(L("Saving a backup…"))
         let backup = try makeBackup(game)
         let oldApp = stage.appendingPathComponent("Original.app", isDirectory: true)
         var movedOriginal = false
@@ -254,14 +254,14 @@ final class LauncherCore {
             let state = InstallState(version: game.version, backupID: backup.id, installedAt: Date())
             try JSONEncoder().encode(state).write(to: stateURL(game.root), options: .atomic)
             _ = try Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", game.app.path])
-            progress("Patch installed. Connection settings are ready.")
+            progress(L("Patch installed. Connection settings are ready."))
         } catch {
             var rollbackErrors: [String] = []
-            if installed { do { try fm.removeItem(at: game.app) } catch { rollbackErrors.append("removing the new copy") } }
-            if movedOriginal { do { try fm.moveItem(at: oldApp, to: game.app) } catch { rollbackErrors.append("restoring the app") } }
-            do { try restoreConfiguration(backup, game: game) } catch { rollbackErrors.append("restoring settings") }
+            if installed { do { try fm.removeItem(at: game.app) } catch { rollbackErrors.append(L("removing the new copy")) } }
+            if movedOriginal { do { try fm.moveItem(at: oldApp, to: game.app) } catch { rollbackErrors.append(L("restoring the app")) } }
+            do { try restoreConfiguration(backup, game: game) } catch { rollbackErrors.append(L("restoring settings")) }
             if !rollbackErrors.isEmpty {
-                throw LauncherFailure("Operation failed: \(error.localizedDescription). Rollback could not finish: \(rollbackErrors.joined(separator: ", ")). Backup: \(backupDirectory(game.root, backup.id).path)")
+                throw LauncherFailure(LF("Operation failed: %@. Rollback could not finish: %@. Backup: %@", error.localizedDescription, rollbackErrors.joined(separator: ", "), backupDirectory(game.root, backup.id).path))
             }
             throw error
         }
@@ -279,31 +279,31 @@ final class LauncherCore {
         guard target.isFileURL, target.lastPathComponent != ".", target.lastPathComponent != "..",
               fm.fileExists(atPath: parent.path), !fm.fileExists(atPath: target.path),
               !target.path.hasPrefix(game.root.path + "/") else {
-            throw LauncherFailure("Choose a new folder that does not exist yet, outside the original client.")
+            throw LauncherFailure(L("Choose a new folder that does not exist yet, outside the original client."))
         }
         let stage = parent.appendingPathComponent(".firestorm-install-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: stage, withIntermediateDirectories: false)
         defer { try? fm.removeItem(at: stage) }
-        progress("Creating an independent APFS copy of the game archives…")
+        progress(L("Creating an independent APFS copy of the game archives…"))
         let dataSource = game.root.appendingPathComponent("Data").resolvingSymlinksInPath()
         if let files = fm.enumerator(at: dataSource, includingPropertiesForKeys: [.isSymbolicLinkKey]) {
             for case let file as URL in files {
                 if try file.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true {
-                    throw LauncherFailure("A symbolic link was found inside Data. An independent copy requires regular game files.")
+                    throw LauncherFailure(L("A symbolic link was found inside Data. An independent copy requires regular game files."))
                 }
             }
-        } else { throw LauncherFailure("Could not read the Data folder.") }
+        } else { throw LauncherFailure(L("Could not read the Data folder.")) }
         let dataTarget = stage.appendingPathComponent("Data")
         let copyResult = try Self.run("/bin/cp", ["-cR", dataSource.path, dataTarget.path], allowFailure: true)
         guard copyResult.status == 0 else {
-            throw LauncherFailure("Could not create an APFS copy. The source client and destination must be on the same APFS volume. You can select an existing client instead. \(copyResult.output.prefix(400))")
+            throw LauncherFailure(LF("Could not create an APFS copy. The source client and destination must be on the same APFS volume. You can select an existing client instead. %@", String(copyResult.output.prefix(400))))
         }
         try fm.copyItem(at: game.root.appendingPathComponent(".fsbuild"), to: stage.appendingPathComponent(".fsbuild"))
         let product = stage.appendingPathComponent("_midnight_", isDirectory: true)
         try fm.createDirectory(at: product, withIntermediateDirectories: true)
         let flavor = game.product.appendingPathComponent(".flavor.info")
         if fm.fileExists(atPath: flavor.path) { try fm.copyItem(at: flavor, to: product.appendingPathComponent(".flavor.info")) }
-        progress("Installing the client and patch…")
+        progress(L("Installing the client and patch…"))
         let payloadStage = stage.appendingPathComponent(".payload", isDirectory: true)
         try fm.createDirectory(at: payloadStage, withIntermediateDirectories: false)
         let payload = try extractPayload(to: payloadStage)
@@ -314,9 +314,9 @@ final class LauncherCore {
         try mergedConfiguration(nil, locale: locale).write(to: wtf.appendingPathComponent("Firestorm.wtf"), options: .atomic)
         _ = try GameInstallation.inspect(stage)
         try requireStopped()
-        guard !fm.fileExists(atPath: target.path) else { throw LauncherFailure("The destination folder already exists. Choose another folder.") }
+        guard !fm.fileExists(atPath: target.path) else { throw LauncherFailure(L("The destination folder already exists. Choose another folder.")) }
         try fm.moveItem(at: stage, to: target)
-        progress("The independent client is ready.")
+        progress(L("The independent client is ready."))
         return try GameInstallation.inspect(target)
     }
 
@@ -325,10 +325,10 @@ final class LauncherCore {
     /// replaced here; callers publish the entire staging folder atomically.
     func finishCleanInstall(in root: URL, locale: String, progress: (String) -> Void) throws -> GameInstallation {
         try validateLocale(locale)
-        guard root.isFileURL else { throw LauncherFailure("Choose a local installation folder.") }
+        guard root.isFileURL else { throw LauncherFailure(L("Choose a local installation folder.")) }
         let root = root.standardizedFileURL.resolvingSymlinksInPath()
         let attrs = try root.resourceValues(forKeys: [.isDirectoryKey])
-        guard attrs.isDirectory == true else { throw LauncherFailure("The clean installation staging folder is missing.") }
+        guard attrs.isDirectory == true else { throw LauncherFailure(L("The clean installation staging folder is missing.")) }
         let lock = try acquireLock(root)
         defer { Self.releaseLock(lock) }
         try requireStopped()
@@ -342,22 +342,22 @@ final class LauncherCore {
         let primaryArchive = root.appendingPathComponent("Data/data/data.000")
         for path in [app, config, flavor, metadata, primaryArchive] { try Self.ensureMutablePath(path, root: root) }
         guard fm.fileExists(atPath: metadata.path), fm.fileExists(atPath: primaryArchive.path) else {
-            throw LauncherFailure("The clean download has not supplied .fsbuild and Data/data/data.000 yet.")
+            throw LauncherFailure(L("The clean download has not supplied .fsbuild and Data/data/data.000 yet."))
         }
         guard !fm.fileExists(atPath: app.path), !fm.fileExists(atPath: config.path) else {
-            throw LauncherFailure("The clean staging folder already contains a client or game settings.")
+            throw LauncherFailure(L("The clean staging folder already contains a client or game settings."))
         }
         let flavorData = Data("Product Flavor!STRING:0\nwow\n".utf8)
         let flavorExisted = fm.fileExists(atPath: flavor.path)
         if flavorExisted, try Data(contentsOf: flavor) != flavorData {
-            throw LauncherFailure("The clean staging folder contains an unexpected product flavor.")
+            throw LauncherFailure(L("The clean staging folder contains an unexpected product flavor."))
         }
         let productExisted = fm.fileExists(atPath: product.path)
         let wtfExisted = fm.fileExists(atPath: wtf.path)
         let payloadStage = root.appendingPathComponent(".firestorm-payload-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: payloadStage, withIntermediateDirectories: false)
         defer { try? fm.removeItem(at: payloadStage) }
-        progress("Verifying the bundled client…")
+        progress(L("Verifying the bundled client…"))
         let prepared = try extractPayload(to: payloadStage)
         var installedApp = false
         var installedConfig = false
@@ -365,9 +365,9 @@ final class LauncherCore {
         do {
             try requireStopped()
             guard !fm.fileExists(atPath: app.path), !fm.fileExists(atPath: config.path) else {
-                throw LauncherFailure("The clean staging folder changed during installation.")
+                throw LauncherFailure(L("The clean staging folder changed during installation."))
             }
-            progress("Installing the client, patch and connection profile…")
+            progress(L("Installing the client, patch and connection profile…"))
             try fm.createDirectory(at: product, withIntermediateDirectories: true)
             try fm.moveItem(at: prepared, to: app)
             installedApp = true
@@ -379,7 +379,7 @@ final class LauncherCore {
                 installedFlavor = true
             }
             let game = try GameInstallation.inspect(root)
-            progress("The clean client installation is ready.")
+            progress(L("The clean client installation is ready."))
             return game
         } catch {
             if installedApp { try? fm.removeItem(at: app) }
@@ -405,15 +405,15 @@ final class LauncherCore {
                   record.id == url.lastPathComponent, record.root == game.root.path, !record.restored else { return nil }
             return record
         }.sorted { $0.date > $1.date }
-        guard var backup = backups.first else { throw LauncherFailure("This launcher has not created any backups yet.") }
+        guard var backup = backups.first else { throw LauncherFailure(L("This launcher has not created any backups yet.")) }
         let directory = backupDirectory(game.root, backup.id)
         try Self.ensureMutablePath(directory, root: game.root)
         let savedApp = directory.appendingPathComponent(gameAppName)
-        guard fm.fileExists(atPath: savedApp.path) else { throw LauncherFailure("The app is missing from the backup.") }
+        guard fm.fileExists(atPath: savedApp.path) else { throw LauncherFailure(L("The app is missing from the backup.")) }
         let stage = game.root.appendingPathComponent(".firestorm-restore-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: stage, withIntermediateDirectories: false)
         defer { try? fm.removeItem(at: stage) }
-        progress("Restoring the backup…")
+        progress(L("Restoring the backup…"))
         let restoredApp = stage.appendingPathComponent(gameAppName)
         try copyBundle(savedApp, restoredApp)
         let config = game.product.appendingPathComponent("WTF/Firestorm.wtf")
@@ -431,13 +431,13 @@ final class LauncherCore {
             try restoreConfiguration(backup, game: game)
             backup.restored = true
             try JSONEncoder().encode(backup).write(to: directory.appendingPathComponent("metadata.json"), options: .atomic)
-            progress("The original app and settings have been restored.")
+            progress(L("The original app and settings have been restored."))
         } catch {
             var rollbackErrors: [String] = []
-            if replacementInstalled { do { try fm.removeItem(at: game.app) } catch { rollbackErrors.append("removing the restored app") } }
-            if originalMoved { do { try fm.moveItem(at: oldApp, to: game.app) } catch { rollbackErrors.append("restoring the current app") } }
-            do { try writeOrRemove(currentConfig, at: config); try writeOrRemove(currentState, at: stateURL(game.root)) } catch { rollbackErrors.append("restoring the current settings") }
-            if !rollbackErrors.isEmpty { throw LauncherFailure("Restore and rollback could not finish: \(rollbackErrors.joined(separator: ", ")). Backup: \(directory.path)") }
+            if replacementInstalled { do { try fm.removeItem(at: game.app) } catch { rollbackErrors.append(L("removing the restored app")) } }
+            if originalMoved { do { try fm.moveItem(at: oldApp, to: game.app) } catch { rollbackErrors.append(L("restoring the current app")) } }
+            do { try writeOrRemove(currentConfig, at: config); try writeOrRemove(currentState, at: stateURL(game.root)) } catch { rollbackErrors.append(L("restoring the current settings")) }
+            if !rollbackErrors.isEmpty { throw LauncherFailure(LF("Restore and rollback could not finish: %@. Backup: %@", rollbackErrors.joined(separator: ", "), directory.path)) }
             throw error
         }
     }
@@ -484,13 +484,13 @@ final class LauncherCore {
     private func extractPayload(to directory: URL) throws -> URL {
         let manifest = try readManifest()
         let archive = resources.appendingPathComponent("Client.zip")
-        guard fm.fileExists(atPath: archive.path) else { throw LauncherFailure("The bundled client archive Client.zip is missing.") }
+        guard fm.fileExists(atPath: archive.path) else { throw LauncherFailure(L("The bundled client archive Client.zip is missing.")) }
         try validateArchive(archive)
         _ = try Self.run("/usr/bin/ditto", ["-x", "-k", archive.path, directory.path])
         let app = directory.appendingPathComponent(gameAppName)
         try verifyFiles(app, manifest: manifest)
         guard let info = try? PropertyListSerialization.propertyList(from: Data(contentsOf: app.appendingPathComponent("Contents/Info.plist")), format: nil) as? [String: Any],
-              info["CFBundleVersion"] as? String == GameInstallation.supportedVersion else { throw LauncherFailure("The bundled client version does not match the supported version.") }
+              info["CFBundleVersion"] as? String == GameInstallation.supportedVersion else { throw LauncherFailure(L("The bundled client version does not match the supported version.")) }
         _ = try Self.run("/usr/bin/codesign", ["--verify", "--deep", "--strict", app.path])
         return app
     }
@@ -503,7 +503,7 @@ final class LauncherCore {
               manifest.files.allSatisfy({ key, value in
                   !key.hasPrefix("/") && !key.split(separator: "/").contains("..") &&
                   value.utf8.count == 64 && value.allSatisfy({ $0.isASCII && $0.isHexDigit })
-              }) else { throw LauncherFailure("The bundled client checksum manifest is invalid.") }
+              }) else { throw LauncherFailure(L("The bundled client checksum manifest is invalid.")) }
         return manifest
     }
 
@@ -511,7 +511,7 @@ final class LauncherCore {
     // cannot write outside its private staging folder or create symbolic links.
     private func validateArchive(_ archive: URL) throws {
         let data = try Data(contentsOf: archive, options: .mappedIfSafe)
-        func fail() -> LauncherFailure { LauncherFailure("The bundled client archive is invalid or unsafe.") }
+        func fail() -> LauncherFailure { LauncherFailure(L("The bundled client archive is invalid or unsafe.")) }
         func u16(_ at: Int) throws -> UInt16 {
             guard at >= 0, at + 2 <= data.count else { throw fail() }
             return UInt16(data[at]) | UInt16(data[at + 1]) << 8
@@ -553,23 +553,23 @@ final class LauncherCore {
 
     private func verifyFiles(_ app: URL, manifest: Manifest) throws {
         guard let enumerator = fm.enumerator(atPath: app.path) else {
-            throw LauncherFailure("Could not verify the client files.")
+            throw LauncherFailure(L("Could not verify the client files."))
         }
         var actual = Set<String>()
         for case let key as String in enumerator {
             let file = app.appendingPathComponent(key)
             let attrs = try file.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey])
-            guard attrs.isSymbolicLink != true else { throw LauncherFailure("Symbolic links inside the bundled client are not supported.") }
+            guard attrs.isSymbolicLink != true else { throw LauncherFailure(L("Symbolic links inside the bundled client are not supported.")) }
             if attrs.isRegularFile == true {
                 guard let expected = manifest.files[key], try Self.sha256(file) == expected.lowercased() else {
-                    throw LauncherFailure("Checksum mismatch: \(file.lastPathComponent).")
+                    throw LauncherFailure(LF("Checksum mismatch: %@.", file.lastPathComponent))
                 }
                 actual.insert(key)
             } else if attrs.isDirectory != true {
-                throw LauncherFailure("An unsupported file type was found in the bundled client.")
+                throw LauncherFailure(L("An unsupported file type was found in the bundled client."))
             }
         }
-        guard actual == Set(manifest.files.keys) else { throw LauncherFailure("The bundled client is incomplete.") }
+        guard actual == Set(manifest.files.keys) else { throw LauncherFailure(L("The bundled client is incomplete.")) }
     }
 
     static func sha256(_ file: URL) throws -> String {
@@ -583,7 +583,7 @@ final class LauncherCore {
     private func mergedConfiguration(_ data: Data?, locale: String) throws -> Data {
         var text = ""
         if let data {
-            guard let decoded = String(data: data, encoding: .utf8) else { throw LauncherFailure("Firestorm.wtf must use UTF-8 encoding.") }
+            guard let decoded = String(data: data, encoding: .utf8) else { throw LauncherFailure(L("Firestorm.wtf must use UTF-8 encoding.")) }
             text = decoded
         }
         let settings = ["portal": "eu.mnight.fstorm.eu", "textlocale": locale, "audiolocale": locale]
@@ -613,7 +613,7 @@ final class LauncherCore {
 
     private func validateLocale(_ locale: String) throws {
         guard ["ruRU", "enUS", "enGB", "deDE", "frFR", "esES", "esMX", "itIT", "ptBR", "koKR", "zhCN", "zhTW"].contains(locale) else {
-            throw LauncherFailure("The selected game language is not supported.")
+            throw LauncherFailure(L("The selected game language is not supported."))
         }
     }
 
@@ -623,31 +623,31 @@ final class LauncherCore {
         }
         for path in [game.product.appendingPathComponent("WTF/Firestorm.wtf"), stateURL(game.root)] {
             if let attrs = try? fm.attributesOfItem(atPath: path.path), attrs[.type] as? FileAttributeType != .typeRegular {
-                throw LauncherFailure("The path \(path.lastPathComponent) is not a regular file. Fix it before preparing the client.")
+                throw LauncherFailure(LF("The path %@ is not a regular file. Fix it before preparing the client.", path.lastPathComponent))
             }
         }
         let backups = game.root.appendingPathComponent(".firestorm-launcher-backups")
         if let attrs = try? fm.attributesOfItem(atPath: backups.path), attrs[.type] as? FileAttributeType != .typeDirectory {
-            throw LauncherFailure("The backup folder path is occupied by a file.")
+            throw LauncherFailure(L("The backup folder path is occupied by a file."))
         }
     }
 
     static func ensureMutablePath(_ url: URL, root: URL) throws {
         let base = root.standardizedFileURL
         let path = url.standardizedFileURL
-        guard path.path.hasPrefix(base.path + "/") else { throw LauncherFailure("The write path is outside the client folder.") }
+        guard path.path.hasPrefix(base.path + "/") else { throw LauncherFailure(L("The write path is outside the client folder.")) }
         let relative = path.path.dropFirst(base.path.count + 1)
         var cursor = base
         for component in relative.split(separator: "/") {
             cursor.appendPathComponent(String(component))
             if let attrs = try? fm.attributesOfItem(atPath: cursor.path), attrs[.type] as? FileAttributeType == .typeSymbolicLink {
-                throw LauncherFailure("Installation requires regular folders without symbolic links: \(cursor.lastPathComponent).")
+                throw LauncherFailure(LF("Installation requires regular folders without symbolic links: %@.", cursor.lastPathComponent))
             }
         }
     }
 
     private func requireStopped() throws {
-        guard !Self.gameIsRunning() else { throw LauncherFailure("Close all running copies of World of Warcraft first.") }
+        guard !Self.gameIsRunning() else { throw LauncherFailure(L("Close all running copies of World of Warcraft first.")) }
     }
     private func stateURL(_ root: URL) -> URL { root.appendingPathComponent(".firestorm-launcher-state.json") }
     private func backupDirectory(_ root: URL, _ id: String) -> URL { root.appendingPathComponent(".firestorm-launcher-backups/\(id)", isDirectory: true) }
@@ -663,21 +663,21 @@ final class LauncherCore {
         let attrs = try fm.attributesOfItem(atPath: directory.path)
         guard attrs[.type] as? FileAttributeType == .typeDirectory,
               (attrs[.ownerAccountID] as? NSNumber)?.uint32Value == getuid() else {
-            throw LauncherFailure("Could not access a secure installation lock folder.")
+            throw LauncherFailure(L("Could not access a secure installation lock folder."))
         }
         try fm.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)
         let key = SHA256.hash(data: Data(root.standardizedFileURL.path.utf8)).map { String(format: "%02x", $0) }.joined()
         let path = directory.appendingPathComponent(key + ".lock")
         let descriptor = Darwin.open(path.path, O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else { throw LauncherFailure("Could not create an installation lock.") }
+        guard descriptor >= 0 else { throw LauncherFailure(L("Could not create an installation lock.")) }
         var status = stat()
         guard fstat(descriptor, &status) == 0, status.st_uid == getuid(), status.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG), status.st_nlink == 1 else {
             Darwin.close(descriptor)
-            throw LauncherFailure("The installation lock file is unsafe.")
+            throw LauncherFailure(L("The installation lock file is unsafe."))
         }
         guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
             Darwin.close(descriptor)
-            throw LauncherFailure("Another launcher is already using this installation.")
+            throw LauncherFailure(L("Another launcher is already using this installation."))
         }
         return descriptor
     }
@@ -688,7 +688,7 @@ final class LauncherCore {
     static func run(_ executable: String, _ arguments: [String], allowFailure: Bool = false) throws -> CommandResult {
         let outputURL = fm.temporaryDirectory.appendingPathComponent("firestorm-process-\(UUID().uuidString).log")
         guard fm.createFile(atPath: outputURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
-            throw LauncherFailure("Could not create a temporary operation log.")
+            throw LauncherFailure(L("Could not create a temporary operation log."))
         }
         defer { try? fm.removeItem(at: outputURL) }
         let handle = try FileHandle(forWritingTo: outputURL)
@@ -707,7 +707,7 @@ final class LauncherCore {
         let output = String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         let result = CommandResult(status: process.terminationStatus, output: output)
         guard allowFailure || process.terminationStatus == 0 else {
-            throw LauncherFailure("The \(URL(fileURLWithPath: executable).lastPathComponent) operation failed with code \(process.terminationStatus). \(output.prefix(900))")
+            throw LauncherFailure(LF("The %@ operation failed with code %@. %@", URL(fileURLWithPath: executable).lastPathComponent, String(process.terminationStatus), String(output.prefix(900))))
         }
         return result
     }

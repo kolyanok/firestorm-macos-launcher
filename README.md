@@ -6,17 +6,19 @@ An independent native launcher for **Firestorm Midnight / Silvermoon**, targetin
 > After extracting the ZIP, drag **Firestorm Launcher.app** to **Applications** in Finder, then open it from there.
 > Keep `World of Warcraft.app` inside `_midnight_` in your game folder so WoW can find its `Data` folder.
 >
-> Version **1.1.8** fixes `../Data: Read-only file system` after downloading the launcher and the subsequent macOS privacy-check crash during voice-chat initialization. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
+> Version **1.1.9** adds Russian and English interface selection. Version **1.1.8** fixes `../Data: Read-only file system` after downloading the launcher and the subsequent macOS privacy-check crash during voice-chat initialization. Quit WoW and the older launcher, replace **Firestorm Launcher.app**, and click **Play** for your existing installation.
 
 This repository contains launcher and compatibility-patch source code, build metadata, and development checks. It does **not** contain the World of Warcraft application, game Data, compiled patch libraries, or release archives. The full binary release is a separate download and includes the prepared macOS game application and compatibility patch.
 
 ## Download
 
-**[Download Firestorm Launcher 1.1.8 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.8/Firestorm-Launcher-1.1.8-macOS-Universal.zip)**
+**[Download Firestorm Launcher 1.1.9 for Intel & Apple Silicon](https://github.com/kolyanok/firestorm-macos-launcher/releases/download/v1.1.9/Firestorm-Launcher-1.1.9-macOS-Universal.zip)**
 
 One **Universal 2** package contains the launcher and prepared game client for **Intel (`x86_64`) and Apple Silicon (`arm64`)**. Requires macOS 14 or later.
 
-The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.8).
+The macOS ZIP is also available under **Assets** on the [release page](https://github.com/kolyanok/firestorm-macos-launcher/releases/tag/v1.1.9).
+
+Choose **Interface language** in the launcher to switch between **English**, **Русский**, and the system language. The interface updates immediately and remembers your choice.
 
 ## Screenshot
 
@@ -26,7 +28,7 @@ The macOS ZIP is also available under **Assets** on the [release page](https://g
 
 - Universal 2 support for Intel and Apple Silicon, including their matching game compatibility patches.
 - Launches WoW from its installation directory so it can locate the adjacent game data after a browser download.
-- Native macOS interface in English, with configurable game text and voice language.
+- Native macOS interface in English and Russian, with automatic system-language selection and a saved interface-language preference. Game text and voice language have their own selector.
 - Starter Data downloads from Firestorm with pause and resume support.
 - Installation into a new folder or selection of an existing compatible client.
 - Independent APFS cloning of existing game Data on the same volume.
